@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom HBS Crimson color */
+@layer base {
+    :root {
+        --hbs-crimson: #a51c30;
+    }
+}
+
+@layer components {
+    /* HBS Crimson utilities */
+    .bg-hbs-crimson {
+        background-color: var(--hbs-crimson);
+    }
+
+    .text-hbs-crimson {
+        color: var(--hbs-crimson);
+    }
+
+    .border-hbs-crimson {
+        border-color: var(--hbs-crimson);
+    }
+
+    /* Active tab style */
+    .tab-button.active {
+        @apply border-b-2 border-hbs-crimson text-hbs-crimson font-semibold;
+    }
+
+    /* Carousel transition */
+    .carousel-slide {
+        @apply transition-opacity duration-700 ease-in-out;
+    }
+
+    /* Tab panel visibility */
+    .tab-panel {
+        @apply block;
+    }
+
+    .tab-panel.hidden {
+        display: none;
+    }
+
+    /* Carousel dot styles */
+    .carousel-dot.bg-white {
+        background-color: white;
+        opacity: 1;
+    }
+
+    .carousel-dot.bg-white\/50 {
+        background-color: white;
+        opacity: 0.5;
+    }
+}
+
+/* Base styles */
+@layer base {
+    body {
+        @apply font-sans bg-gray-100;
+        font-family: "Inter", sans-serif;
+    }
+}
