@@ -59,7 +59,8 @@ import "../styles/global.css";
                         <a
                             href="/directory"
                             class={`py-4 px-1 border-b-4 text-sm md:text-base font-medium ${
-                                Astro.url.pathname === "/directory"
+                                Astro.url.pathname === "/directory" ||
+                                Astro.url.pathname === "/directory/"
                                     ? "text-hbs-crimson border-hbs-crimson"
                                     : "text-gray-600 border-transparent hover:text-gray-800 hover:border-gray-300"
                             }`}
@@ -69,7 +70,8 @@ import "../styles/global.css";
                         <a
                             href="/events"
                             class={`py-4 px-1 border-b-4 text-sm md:text-base font-medium ${
-                                Astro.url.pathname === "/events"
+                                Astro.url.pathname === "/events" ||
+                                Astro.url.pathname === "/events/"
                                     ? "text-hbs-crimson border-hbs-crimson"
                                     : "text-gray-600 border-transparent hover:text-gray-800 hover:border-gray-300"
                             }`}
@@ -79,7 +81,8 @@ import "../styles/global.css";
                         <a
                             href="/resources"
                             class={`py-4 px-1 border-b-4 text-sm md:text-base font-medium ${
-                                Astro.url.pathname === "/resources"
+                                Astro.url.pathname === "/resources" ||
+                                Astro.url.pathname === "/resources/"
                                     ? "text-hbs-crimson border-hbs-crimson"
                                     : "text-gray-600 border-transparent hover:text-gray-800 hover:border-gray-300"
                             }`}
