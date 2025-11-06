@@ -16,53 +16,9 @@ const members = files.map(file => {
     };
 });
 
-const leadership = [
-    {
-        name: 'Dimitri Henry',
-        title: 'Section President',
-        quote: 'HBS/HKS!',
-        imageUrl: '/assets/hbs_classcard_photos/dimitri_henry.jpg'
-    },
-    {
-        name: 'Amaan Chaudhry',
-        title: 'Treasurer',
-        quote: 'P.E. in Industrials!',
-        imageUrl: '/assets/hbs_classcard_photos/amaan_chaudhry.jpg'
-    },
-    {
-        name: 'Nicolás Oriol',
-        title: 'VP, Finance',
-        quote: 'BCG lets gooo!!!!',
-        imageUrl: '/assets/hbs_classcard_photos/nicolás_oriol.jpg'
-    },
-    {
-        name: 'Tamara Halder',
-        title: 'Education Representative',
-        quote: 'Yeah McKinsey woohoo!!',
-        imageUrl: '/assets/hbs_classcard_photos/tamara_halder.jpg'
-    }
-];
 ---
 
 <Layout>
-    <!-- Section Leadership -->
-    <div class="bg-white p-6 md:p-8 rounded-lg shadow-lg mb-8">
-        <h2 class="text-3xl font-bold text-gray-800 mb-6">Section J Leadership</h2>
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {leadership.map(leader => (
-                <div class="text-center p-4 border border-gray-200 rounded-lg shadow-md">
-                    <img
-                        src={leader.imageUrl}
-                        class="w-32 h-32 rounded-full mx-auto mb-4 border-4 border-white shadow-lg"
-                        alt="Profile Photo"
-                    />
-                    <h3 class="text-xl font-semibold text-gray-900">{leader.name}</h3>
-                    <p class="text-hbs-crimson font-medium">{leader.title}</p>
-                    <p class="text-sm text-gray-600 mt-2">{leader.quote}</p>
-                </div>
-            ))}
-        </div>
-    </div>
 
     <!-- Section Directory -->
     <div class="bg-white p-6 md:p-8 rounded-lg shadow-lg">
