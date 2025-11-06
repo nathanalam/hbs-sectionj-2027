@@ -89,6 +89,17 @@ import "../styles/global.css";
                         >
                             Resources
                         </a>
+                        <a
+                            href="/feedback"
+                            class={`py-4 px-1 border-b-4 text-sm md:text-base font-medium ${
+                                Astro.url.pathname === "/feedback" ||
+                                Astro.url.pathname === "/feedback/"
+                                    ? "text-hbs-crimson border-hbs-crimson"
+                                    : "text-gray-600 border-transparent hover:text-gray-800 hover:border-gray-300"
+                            }`}
+                        >
+                            Feedback
+                        </a>
                     </div>
                 </div>
             </nav>
