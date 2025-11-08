@@ -6,69 +6,123 @@ import Layout from "../layouts/MainLayout.astro";
     <div class="bg-white p-6 md:p-8 rounded-lg shadow-lg">
         <h1 class="text-3xl font-bold mb-8 text-gray-800">Case Videos</h1>
 
-        <div class="space-y-8">
-            <!-- Wells Fargo Case -->
-            <div class="border border-gray-200 rounded-lg p-6 shadow-sm">
-                <h2 class="text-2xl font-semibold mb-4 text-gray-900">
-                    Wells Fargo Sales Misconduct and Culture
-                </h2>
+        <div id="videos-container" class="space-y-8">
+            <p class="text-gray-600">Loading videos...</p>
+        </div>
 
-                <div class="mb-4">
-                    <span
-                        class="inline-block bg-gray-100 text-gray-700 text-sm px-3 py-1 rounded-full"
-                    >
-                        3 sources
-                    </span>
-                </div>
-
-                <div class="mb-6 text-gray-700 leading-relaxed">
-                    <p class="mb-4">
-                        The provided sources primarily consist of excerpts from
-                        a Harvard Business Review case study concerning Sales
-                        Misconduct at Wells Fargo Community Bank, along with a
-                        very brief mention of conflicts of interest from a
-                        separate document titled "integrity.pdf." The extensive
-                        Wells Fargo case details the timeline and fallout of the
-                        unauthorized account scandal from 2011 to 2016, where
-                        employees opened millions of "ghost accounts" due to
-                        aggressive sales pressure and unrealistic quotas. It
-                        outlines the bank's response, including executive
-                        terminations, clawbacks, and attempts to centralize risk
-                        management following regulatory settlements. The text
-                        also summarizes the recommendations of proxy advisors,
-                        Glass Lewis and Institutional Shareholders Services
-                        (ISS), ahead of the 2017 annual shareholder meeting
-                        regarding the re-election of the Board of Directors.
-                    </p>
-                </div>
-
-                <div class="video-container">
-                    <div style="max-width: 1280px; margin: 0 auto;">
-                        <div
-                            style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden;"
-                        >
-                            <iframe
-                                src="https://hbs.sharepoint.com/sites/sectionj2027leadership/_layouts/15/embed.aspx?UniqueId=ff1bb8d7-375e-4877-b840-614d014a37cc&embed=%7B%22hvm%22%3Atrue%2C%22ust%22%3Atrue%7D&referrer=OneUpFileViewer&referrerScenario=EmbedDialog.Create"
-                                width="1280"
-                                height="720"
-                                frameborder="0"
-                                scrolling="no"
-                                allowfullscreen
-                                title="wells-fargo"
-                                style="border:none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; height: 100%; max-width: 100%;"
-                            >
-                            </iframe>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Placeholder for more videos -->
-            <div class="text-center py-8">
-                <p class="text-gray-500 italic">
-                    More case videos will be added soon...
-                </p>
-            </div>
+        <div class="mt-8">
+            <a
+                href="https://docs.google.com/spreadsheets/d/12MC157YYPrQjbj1a17Z1nwNfUJMNRXTFOQvU6_DBHQs/edit#gid=2002002496"
+                class="text-blue-500 hover:underline">Modify the videos</a
+            >
         </div>
     </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            // Same spreadsheet ID, different sheet GID for videos
+            const SPREADSHEET_ID =
+                "12MC157YYPrQjbj1a17Z1nwNfUJMNRXTFOQvU6_DBHQs";
+            const SHEET_GID = "2002002496"; // Videos sheet
+
+            const JSON_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&gid=${SHEET_GID}`;
+            const container = document.getElementById("videos-container");
+
+            function generateVideoEmbed(uniqueId) {
+                return `https://hbs.sharepoint.com/sites/sectionj2027leadership/_layouts/15/embed.aspx?UniqueId=${uniqueId}&embed=%7B%22hvm%22%3Atrue%2C%22ust%22%3Atrue%7D&referrer=OneUpFileViewer&referrerScenario=EmbedDialog.Create`;
+            }
+
+            async function fetchVideos() {
+                try {
+                    const response = await fetch(JSON_URL);
+                    if (!response.ok) {
+                        throw new Error("Network response was not ok");
+                    }
+                    let text = await response.text();
+
+                    // The response is JSONP, not pure JSON. We need to clean it.
+                    // It starts with 'google.visualization.Query.setResponse(' and ends with ');'
+                    const jsonText = text.substring(47, text.length - 2);
+                    const data = JSON.parse(jsonText);
+
+                    // The actual data is in data.table.rows
+                    // c: is an array of columns
+                    // v: is the value
+                    // Expected columns: Title, Description, Source Count, Video ID
+                    const videos = data.table.rows
+                        .map((row) => ({
+                            title: row.c[0] ? row.c[0].v : null,
+                            description: row.c[1] ? row.c[1].v : null,
+                            sourceCount: row.c[2] ? row.c[2].v : null,
+                            videoId: row.c[3] ? row.c[3].v : null,
+                        }))
+                        .filter((item) => item.title && item.videoId); // Filter out rows without title or video ID
+
+                    // Clear the "Loading..." message
+                    container.innerHTML = "";
+
+                    if (videos.length > 0) {
+                        videos.forEach((video) => {
+                            const videoHtml = `
+                                <div class="border border-gray-200 rounded-lg p-6 shadow-sm">
+                                    <h2 class="text-2xl font-semibold mb-4 text-gray-900">
+                                        ${video.title}
+                                    </h2>
+
+                                    <div class="mb-4">
+                                        <span class="inline-block bg-gray-100 text-gray-700 text-sm px-3 py-1 rounded-full">
+                                            ${video.sourceCount} ${video.sourceCount === 1 ? "source" : "sources"}
+                                        </span>
+                                    </div>
+
+                                    <div class="mb-6 text-gray-700 leading-relaxed">
+                                        <p class="mb-4">${video.description.replace(/\n/g, "<br />")}</p>
+                                    </div>
+
+                                    <div class="video-container">
+                                        <div style="max-width: 1280px; margin: 0 auto;">
+                                            <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden;">
+                                                <iframe
+                                                    src="${generateVideoEmbed(video.videoId)}"
+                                                    width="1280"
+                                                    height="720"
+                                                    frameborder="0"
+                                                    scrolling="no"
+                                                    allowfullscreen
+                                                    title="${video.title.toLowerCase().replace(/\s+/g, "-")}"
+                                                    style="border:none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; height: 100%; max-width: 100%;"
+                                                ></iframe>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+
+                            container.innerHTML += videoHtml;
+                        });
+                    } else {
+                        container.innerHTML = `
+                            <div class="text-center py-8">
+                                <p class="text-gray-500 italic">
+                                    No case videos available at this time.
+                                </p>
+                            </div>
+                        `;
+                    }
+                } catch (error) {
+                    console.error("Error fetching videos:", error);
+                    container.innerHTML = `
+                        <div class="text-center py-8">
+                            <p class="text-red-600">
+                                Failed to load videos. Please try refreshing the page.
+                            </p>
+                        </div>
+                    `;
+                }
+            }
+
+            // Call the function to fetch and render
+            fetchVideos();
+        });
+    </script>
 </Layout>
