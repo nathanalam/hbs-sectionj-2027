@@ -44,7 +44,9 @@ import "../styles/global.css";
             <!-- === Navigation === -->
             <nav class="bg-white shadow-md sticky top-0 z-10">
                 <div class="container mx-auto px-6">
-                    <div class="flex space-x-6 md:space-x-8 -mb-px overflow-x-auto whitespace-nowrap">
+                    <div
+                        class="flex space-x-6 md:space-x-8 -mb-px overflow-x-auto whitespace-nowrap"
+                    >
                         <a
                             href="/"
                             class={`py-4 px-1 border-b-4 text-sm md:text-base font-medium ${
@@ -77,6 +79,17 @@ import "../styles/global.css";
                             }`}
                         >
                             Events
+                        </a>
+                        <a
+                            href="/cases"
+                            class={`py-4 px-1 border-b-4 text-sm md:text-base font-medium ${
+                                Astro.url.pathname === "/cases" ||
+                                Astro.url.pathname === "/cases/"
+                                    ? "text-hbs-crimson border-hbs-crimson"
+                                    : "text-gray-600 border-transparent hover:text-gray-800 hover:border-gray-300"
+                            }`}
+                        >
+                            Cases
                         </a>
                         <a
                             href="/resources"
