@@ -4,35 +4,296 @@ import Layout from "../layouts/MainLayout.astro";
 
 <Layout>
     <div class="bg-white p-6 md:p-8 rounded-lg shadow-lg">
-        <h1 class="text-3xl font-bold mb-8 text-gray-800">Case Videos</h1>
+        <h1 class="text-3xl font-bold mb-8 text-gray-800">This Week: Cases & Hand-ins</h1>
 
-        <div id="videos-container" class="space-y-8">
-            <p class="text-gray-600">Loading videos...</p>
+        <!-- Week intro (title + description only) -->
+        <div id="week-intro" class="mb-10 hidden">
+            <!-- injected -->
+        </div>
+
+        <!-- Cases section -->
+        <div id="cases-section" class="space-y-8 mb-12 hidden">
+            <h2 class="text-2xl font-semibold text-gray-900">Cases</h2>
+            <div id="cases-container" class="space-y-8">
+                <p class="text-gray-600">Loading cases...</p>
+            </div>
+        </div>
+
+        <!-- Hand-ins section -->
+        <div id="handins-section" class="space-y-6 hidden">
+            <h2 class="text-2xl font-semibold text-gray-900">Hand-ins</h2>
+            <div id="handins-container" class="space-y-4">
+                <p class="text-gray-600">Loading hand-ins...</p>
+            </div>
+        </div>
+
+        <!-- By Day section -->
+        <div id="schedule-section" class="space-y-8 hidden">
+            <h2 class="text-2xl font-semibold text-gray-900">Schedule</h2>
+            <div id="schedule-container" class="space-y-10">
+                <p class="text-gray-600">Loading schedule...</p>
+            </div>
         </div>
 
         <div class="mt-8">
             <a
-                href="https://docs.google.com/spreadsheets/d/12MC157YYPrQjbj1a17Z1nwNfUJMNRXTFOQvU6_DBHQs/edit#gid=2002002496"
-                class="text-blue-500 hover:underline">Modify the videos</a
+                href="https://docs.google.com/spreadsheets/d/1fTnSw2wZYzWLAa9jT0FA26oeSl5SUSKpgrRf0z_U9c4/edit#gid=2002002496"
+                class="text-blue-500 hover:underline">Modify weekly content</a
             >
         </div>
     </div>
 
     <script>
         document.addEventListener("DOMContentLoaded", function () {
-            // Same spreadsheet ID, different sheet GID for videos
+            // Same spreadsheet ID, different sheet GID for weekly content
             const SPREADSHEET_ID =
-                "12MC157YYPrQjbj1a17Z1nwNfUJMNRXTFOQvU6_DBHQs";
-            const SHEET_GID = "2002002496"; // Videos sheet
+                "1fTnSw2wZYzWLAa9jT0FA26oeSl5SUSKpgrRf0z_U9c4";
+            const SHEET_GID = "2002002496"; // Weekly content sheet
 
             const JSON_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&gid=${SHEET_GID}`;
-            const container = document.getElementById("videos-container");
+            const weekIntro = document.getElementById("week-intro");
+            const casesSection = document.getElementById("cases-section");
+            const casesContainer = document.getElementById("cases-container");
+            const handinsSection = document.getElementById("handins-section");
+            const handinsContainer = document.getElementById("handins-container");
+            const scheduleSection = document.getElementById("schedule-section");
+            const scheduleContainer = document.getElementById("schedule-container");
 
-            function generateVideoEmbed(uniqueId) {
-                return `https://drive.google.com/file/d/${uniqueId}/preview`;
+            function generateVideoEmbed(driveId) {
+                return `https://drive.google.com/file/d/${driveId}/preview`;
             }
 
-            async function fetchVideos() {
+            function extractDriveId(input) {
+                if (!input) return null;
+                let value = String(input).trim();
+                // Strip trailing slashes
+                if (value.endsWith("/")) value = value.replace(/\/+$/, "");
+                // If it's already an ID (no slashes and looks like base64-ish)
+                if (/^[A-Za-z0-9_-]{20,}$/.test(value)) return value;
+                // Matches .../file/d/<ID>/...
+                const m = value.match(/\/file\/d\/([A-Za-z0-9_-]{20,})/);
+                if (m && m[1]) return m[1];
+                // Matches id=<ID>
+                const q = value.match(/[?&]id=([A-Za-z0-9_-]{20,})/);
+                if (q && q[1]) return q[1];
+                return null;
+            }
+
+            function normalizeLabel(label) {
+                return (label || "").trim().toLowerCase();
+            }
+
+            function findColIndex(cols, matcher) {
+                return cols.findIndex((c) => matcher(normalizeLabel(c.label)));
+            }
+
+            function getCell(row, idx) {
+                if (idx < 0) return null;
+                const cell = row.c[idx];
+                return cell ? cell.v : null;
+            }
+
+            function isTruthy(value) {
+                return value !== null && value !== undefined && String(value).trim() !== "";
+            }
+
+            // Day/Date utilities
+            const weekdayMap = {
+                mon: "monday",
+                monday: "monday",
+                tue: "tuesday",
+                tues: "tuesday",
+                tuesday: "tuesday",
+                wed: "wednesday",
+                weds: "wednesday",
+                wednesday: "wednesday",
+                thu: "thursday",
+                thur: "thursday",
+                thurs: "thursday",
+                thursday: "thursday",
+                fri: "friday",
+                friday: "friday",
+                sat: "saturday",
+                saturday: "saturday",
+                sun: "sunday",
+                sunday: "sunday",
+            };
+            const weekdayOrder = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+
+            function normalizeWeekday(value) {
+                if (!value) return null;
+                const key = String(value).trim().toLowerCase();
+                return weekdayMap[key] || null;
+            }
+
+            function parseDateValue(value) {
+                if (!value) return null;
+                if (value instanceof Date && !isNaN(value.getTime())) return value;
+                if (typeof value === "number") {
+                    const d = new Date(value);
+                    return isNaN(d.getTime()) ? null : d;
+                }
+                const str = String(value).trim();
+                // Matches Date(YYYY,MM,DD)
+                const m = str.match(/date\((\d{4}),\s*(\d{1,2}),\s*(\d{1,2})\)/i);
+                if (m) {
+                    const d = new Date(Number(m[1]), Number(m[2]), Number(m[3]));
+                    return isNaN(d.getTime()) ? null : d;
+                }
+                const d2 = new Date(str);
+                return isNaN(d2.getTime()) ? null : d2;
+            }
+
+            function getSortKey(item) {
+                const dateObj = parseDateValue(item.date);
+                if (dateObj) return dateObj.getTime();
+                const wk = normalizeWeekday(item.day);
+                if (wk) return 10_000_000 + weekdayOrder.indexOf(wk);
+                return 20_000_000;
+            }
+
+            function formatDayDate(item) {
+                const dateObj = parseDateValue(item.date);
+                if (dateObj) {
+                    try {
+                        return dateObj.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+                    } catch {
+                        return dateObj.toDateString();
+                    }
+                }
+                const wk = normalizeWeekday(item.day);
+                if (wk) return wk.charAt(0).toUpperCase() + wk.slice(1);
+                return null;
+            }
+
+            function getGroupKey(item) {
+                const dateObj = parseDateValue(item.date);
+                if (dateObj) {
+                    const yyyy = dateObj.getFullYear();
+                    const mm = String(dateObj.getMonth() + 1).padStart(2, "0");
+                    const dd = String(dateObj.getDate()).padStart(2, "0");
+                    const key = `date:${yyyy}-${mm}-${dd}`;
+                    const label = formatDayDate(item);
+                    return { key, label, sortKey: dateObj.getTime() };
+                }
+                const wk = normalizeWeekday(item.day);
+                if (wk) {
+                    const key = `day:${wk}`;
+                    const label = wk.charAt(0).toUpperCase() + wk.slice(1);
+                    return { key, label, sortKey: 10_000_000 + weekdayOrder.indexOf(wk) };
+                }
+                return { key: "other", label: "Other", sortKey: 20_000_000 };
+            }
+
+            function groupItemsByDay(items) {
+                const map = new Map();
+                for (const it of items) {
+                    const g = getGroupKey(it);
+                    if (!map.has(g.key)) {
+                        map.set(g.key, { label: g.label, sortKey: g.sortKey, items: [] });
+                    }
+                    map.get(g.key).items.push(it);
+                }
+                // Sort groups and items within each group
+                const groups = Array.from(map.values()).sort((a, b) => a.sortKey - b.sortKey);
+                groups.forEach((g) => {
+                    g.items.sort((a, b) => getSortKey(a) - getSortKey(b));
+                });
+                return groups;
+            }
+
+            function renderWeekIntro(item) {
+                const titleHtml = item.title
+                    ? `<h2 class="text-3xl md:text-4xl font-extrabold tracking-tight text-gray-900 mb-3">${item.title}</h2>`
+                    : "";
+                const descHtml = item.description
+                    ? `<p class="text-gray-700 leading-relaxed">${item.description.replace(/\n/g, "<br />")}</p>`
+                    : "";
+                if (!titleHtml && !descHtml) return;
+                weekIntro.innerHTML = `
+                    <div class="border-t-4 border-gray-900 pt-6">
+                        ${titleHtml}
+                        ${descHtml}
+                    </div>
+                `;
+                weekIntro.classList.remove("hidden");
+            }
+
+            function renderCase(item) {
+                const driveId = extractDriveId(item.videoId);
+                const whenLabel = formatDayDate(item);
+                const whenBadge = whenLabel
+                    ? `<span class="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full bg-gray-50 text-gray-700 border border-gray-200">${whenLabel}</span>`
+                    : "";
+                const canvasLinkHtml = item.canvasLink
+                    ? `<a href="${item.canvasLink}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center px-3 py-1.5 rounded-md bg-gray-900 text-white text-sm hover:bg-gray-800 transition">View on Canvas</a>`
+                    : "";
+                const videoHtml = driveId
+                    ? `
+                        <div class="video-container">
+                            <div style="width: 100%; margin: 0 auto;">
+                                <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden;">
+                                    <iframe
+                                        src="${generateVideoEmbed(driveId)}"
+                                        frameborder="0"
+                                        scrolling="no"
+                                        allowfullscreen
+                                        title="${(item.title || "case").toLowerCase().replace(/\\s+/g, "-")}"
+                                        style="border:none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%;"
+                                    ></iframe>
+                                </div>
+                            </div>
+                        </div>
+                    `
+                    : "";
+
+                const descriptionHtml = item.description
+                    ? `<div class="mb-6 text-gray-700 leading-relaxed"><p class="mb-4">${item.description.replace(/\n/g, "<br />")}</p></div>`
+                    : "";
+
+                return `
+                    <div class="border border-gray-200 rounded-lg p-6 shadow-sm">
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="text-2xl font-semibold text-gray-900">${item.title || "Untitled Case"}</h3>
+                            <div class="flex items-center gap-2">
+                                ${whenBadge}
+                                <span class="inline-flex items-center text-xs font-medium px-2.5 py-1 rounded-full bg-gray-100 text-gray-800">Case</span>
+                            </div>
+                        </div>
+                        ${descriptionHtml}
+                        ${videoHtml}
+                        <div class="mt-4">
+                            ${canvasLinkHtml}
+                        </div>
+                    </div>
+                `;
+            }
+
+            function renderHandIn(item) {
+                const typeLabel = (item.type && String(item.type).trim()) || "Hand-in";
+                const whenLabel = formatDayDate(item);
+                const descriptionHtml = item.description
+                    ? `<p class="text-gray-700">${item.description.replace(/\n/g, "<br />")}</p>`
+                    : "";
+                const canvasLinkHtml = item.canvasLink
+                    ? `<a href="${item.canvasLink}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center px-2.5 py-1.5 rounded-md bg-gray-900 text-white text-xs hover:bg-gray-800 transition">Open on Canvas</a>`
+                    : "";
+                return `
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                ${whenLabel ? `<span class="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full bg-gray-50 text-gray-700 border border-gray-200">${whenLabel}</span>` : ""}
+                                <span class="inline-flex items-center text-xs font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-800">${typeLabel}</span>
+                                <h4 class="text-lg font-medium text-gray-900">${item.title || "Untitled"}</h4>
+                            </div>
+                            <div>${canvasLinkHtml}</div>
+                        </div>
+                        ${descriptionHtml ? `<div class="mt-3">${descriptionHtml}</div>` : ""}
+                    </div>
+                `;
+            }
+
+            async function fetchContent() {
                 try {
                     const response = await fetch(JSON_URL);
                     if (!response.ok) {
@@ -45,74 +306,222 @@ import Layout from "../layouts/MainLayout.astro";
                     const jsonText = text.substring(47, text.length - 2);
                     const data = JSON.parse(jsonText);
 
-                    // The actual data is in data.table.rows
-                    // c: is an array of columns
-                    // v: is the value
-                    // Expected columns: Title, Description, Source Count, Video ID
-                    const videos = data.table.rows
-                        .map((row) => ({
-                            title: row.c[0] ? row.c[0].v : null,
-                            description: row.c[1] ? row.c[1].v : null,
-                            sourceCount: row.c[2] ? row.c[2].v : null,
-                            videoId: row.c[3] ? row.c[3].v : null,
-                        }))
-                        .filter((item) => item.title && item.videoId); // Filter out rows without title or video ID
+                    // Determine column indices by header labels or header row fallback
+                    const cols = data.table.cols;
+                    const rows = data.table.rows || [];
+                    const headerSynonyms = {
+                        title: ["title"],
+                        description: ["description", "desc"],
+                        type: ["type", "item type", "category", "kind"],
+                        canvas: ["canvas link", "canvas url", "canvas"],
+                        day: ["day", "weekday"],
+                        date: ["date", "due date", "hand-in date"],
+                        video: ["video id", "drive id", "video"],
+                    };
 
-                    // Clear the "Loading..." message
-                    container.innerHTML = "";
+                    function indexByLabel() {
+                        const getIdx = (names) =>
+                            names.reduce((acc, name) => (acc !== -1 ? acc : findColIndex(cols, (l) => l === name)), -1);
+                        let byLabelFound = false;
+                        const map = {
+                            titleIdx: getIdx(headerSynonyms.title),
+                            descIdx: getIdx(headerSynonyms.description),
+                            typeIdx: getIdx(headerSynonyms.type),
+                            canvasIdx: getIdx(headerSynonyms.canvas),
+                            dayIdx: getIdx(headerSynonyms.day),
+                            dateIdx: getIdx(headerSynonyms.date),
+                            videoIdx: getIdx(headerSynonyms.video),
+                        };
+                        byLabelFound =
+                            map.titleIdx !== -1 ||
+                            map.descIdx !== -1 ||
+                            map.typeIdx !== -1 ||
+                            map.canvasIdx !== -1 ||
+                            map.dayIdx !== -1 ||
+                            map.dateIdx !== -1 ||
+                            map.videoIdx !== -1;
+                        // Fallback for video: any label containing "video"
+                        if (map.videoIdx === -1) {
+                            map.videoIdx = findColIndex(cols, (l) => l.includes("video"));
+                        }
+                        return { map, byLabelFound, headerRow: -1 };
+                    }
 
-                    if (videos.length > 0) {
-                        videos.forEach((video) => {
-                            const videoHtml = `
-                                <div class="border border-gray-200 rounded-lg p-6 shadow-sm">
-                                    <h2 class="text-2xl font-semibold mb-4 text-gray-900">
-                                        ${video.title}
-                                    </h2>
+                    function indexByHeaderRow() {
+                        const normalize = (s) => (s || "").toString().trim().toLowerCase();
+                        const tryRows = Math.min(3, rows.length);
+                        for (let r = 0; r < tryRows; r++) {
+                            const row = rows[r];
+                            if (!row || !row.c) continue;
+                            const localMap = {
+                                titleIdx: -1,
+                                descriptionIdx: -1,
+                                typeIdx: -1,
+                                canvasIdx: -1,
+                                dayIdx: -1,
+                                dateIdx: -1,
+                                videoIdx: -1,
+                            };
+                            let matches = 0;
+                            for (let i = 0; i < row.c.length; i++) {
+                                const val = normalize(getCell(row, i));
+                                if (!val) continue;
+                                for (const [key, names] of Object.entries(headerSynonyms)) {
+                                    if (names.includes(val)) {
+                                        const k = `${key}Idx`;
+                                        if (localMap[k] === -1) {
+                                            localMap[k] = i;
+                                            matches++;
+                                        }
+                                    }
+                                }
+                            }
+                            if (matches >= 2) {
+                                // Fallback for video if not explicitly labeled
+                                if (localMap.videoIdx === -1) {
+                                    for (let i = 0; i < row.c.length; i++) {
+                                        const val = normalize(getCell(row, i));
+                                        if (val.includes("video")) {
+                                            localMap.videoIdx = i;
+                                            break;
+                                        }
+                                    }
+                                }
+                                return { map: localMap, byLabelFound: false, headerRow: r };
+                            }
+                        }
+                        // default
+                        return {
+                            map: {
+                                titleIdx: -1,
+                                descriptionIdx: -1,
+                                typeIdx: -1,
+                                canvasIdx: -1,
+                                dayIdx: -1,
+                                dateIdx: -1,
+                                videoIdx: -1,
+                            },
+                            byLabelFound: false,
+                            headerRow: -1,
+                        };
+                    }
 
-                                    <div class="mb-4">
-                                        <span class="inline-block bg-gray-100 text-gray-700 text-sm px-3 py-1 rounded-full">
-                                            ${video.sourceCount} ${video.sourceCount === 1 ? "source" : "sources"}
-                                        </span>
+                    const { map: labelMap, byLabelFound } = indexByLabel();
+                    const { map: headerMap, headerRow } = byLabelFound ? { map: labelMap, headerRow: -1 } : indexByHeaderRow();
+                    // Support both descIdx (label-based) and descriptionIdx (header-row-based)
+                    const titleIdx = headerMap.titleIdx ?? -1;
+                    const descIdx = (headerMap.descIdx ?? headerMap.descriptionIdx ?? -1);
+                    const typeIdx = headerMap.typeIdx ?? -1;
+                    const canvasIdx = headerMap.canvasIdx ?? -1;
+                    const dayIdx = headerMap.dayIdx ?? -1;
+                    const dateIdx = headerMap.dateIdx ?? -1;
+                    const videoIdx = headerMap.videoIdx ?? -1;
+
+                    const startRow = headerRow >= 0 ? headerRow + 1 : 0;
+                    const items = rows
+                        .slice(startRow)
+                        .map((row) => {
+                            const title = getCell(row, titleIdx);
+                            const description = getCell(row, descIdx);
+                            const type = getCell(row, typeIdx);
+                            const videoId = getCell(row, videoIdx);
+                            const canvasLink = getCell(row, canvasIdx);
+                            const day = getCell(row, dayIdx);
+                            const date = getCell(row, dateIdx);
+                            return { title, description, type, videoId, canvasLink, day, date };
+                        })
+                        .filter((item) => isTruthy(item.title) || isTruthy(item.description) || isTruthy(item.videoId) || isTruthy(item.canvasLink));
+                    
+                    // Debug: log first parsed items to help diagnose missing fields in production
+                    try {
+                        console.debug("Weekly content indices:", { titleIdx, descIdx, typeIdx, canvasIdx, dayIdx, dateIdx, videoIdx, headerRow });
+                        console.debug("First items sample:", items.slice(0, 3));
+                    } catch {}
+
+                    // Partition: intro (first row with title/description only), cases, hand-ins
+                    let introItem = null;
+                    const caseItems = [];
+                    const handInItems = [];
+
+                    items.forEach((item, index) => {
+                        const typeStr = (item.type || "").toString().trim().toLowerCase();
+                        const hasVideo = isTruthy(extractDriveId(item.videoId));
+                        const hasCanvas = isTruthy(item.canvasLink);
+
+                        const isIntro =
+                            (typeStr === "intro" || typeStr === "week" || typeStr === "header") ||
+                            (!hasVideo && !hasCanvas && index === 0 && isTruthy(item.title));
+
+                        if (isIntro && !introItem) {
+                            introItem = item;
+                            return;
+                        }
+
+                        const isCase = typeStr === "case" || (typeStr === "" && hasVideo);
+                        if (isCase) {
+                            caseItems.push(item);
+                        } else {
+                            handInItems.push(item);
+                        }
+                    });
+
+                    // Sort by Date, then by Day-of-week order
+                    caseItems.sort((a, b) => getSortKey(a) - getSortKey(b));
+                    handInItems.sort((a, b) => getSortKey(a) - getSortKey(b));
+
+                    // Render intro
+                    if (introItem) {
+                        renderWeekIntro(introItem);
+                    }
+
+                    // Render grouped by Day/Date
+                    const contentItems = [...caseItems, ...handInItems];
+                    scheduleContainer.innerHTML = "";
+                    if (contentItems.length > 0) {
+                        scheduleSection.classList.remove("hidden");
+                        const groups = groupItemsByDay(contentItems);
+                        groups.forEach((group) => {
+                            let groupHtml = `
+                                <section>
+                                    <div class="flex items-center justify-between">
+                                        <h3 class="text-xl font-bold tracking-wide text-gray-900">${group.label}</h3>
                                     </div>
-
-                                    <div class="mb-6 text-gray-700 leading-relaxed">
-                                        <p class="mb-4">${video.description ? video.description.replace(/\n/g, "<br />") : ""}</p>
-                                    </div>
-
-                                    <div class="video-container">
-                                        <div style="width: 100%; margin: 0 auto;">
-                                            <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden;">
-                                                <iframe
-                                                    src="${generateVideoEmbed(video.videoId)}"
-                                                    frameborder="0"
-                                                    scrolling="no"
-                                                    allowfullscreen
-                                                    title="${video.title.toLowerCase().replace(/\s+/g, "-")}"
-                                                    style="border:none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%;"
-                                                ></iframe>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+                                    <div class="mt-4 space-y-8">
                             `;
-
-                            container.innerHTML += videoHtml;
+                            group.items.forEach((it) => {
+                                const typeStr = (it.type || "").toString().trim().toLowerCase();
+                                if (typeStr === "case" || (!typeStr && isTruthy(extractDriveId(it.videoId)))) {
+                                    groupHtml += renderCase(it);
+                                } else {
+                                    groupHtml += renderHandIn(it);
+                                }
+                            });
+                            groupHtml += `
+                                    </div>
+                                </section>
+                            `;
+                            scheduleContainer.innerHTML += groupHtml;
                         });
-                    } else {
-                        container.innerHTML = `
+                    }
+
+                    // If nothing to show, provide a friendly message
+                    if (!introItem && caseItems.length === 0 && handInItems.length === 0) {
+                        scheduleSection.classList.remove("hidden");
+                        scheduleContainer.innerHTML = `
                             <div class="text-center py-8">
                                 <p class="text-gray-500 italic">
-                                    No case videos available at this time.
+                                    No weekly content available at this time.
                                 </p>
                             </div>
                         `;
                     }
                 } catch (error) {
-                    console.error("Error fetching videos:", error);
-                    container.innerHTML = `
+                    console.error("Error fetching weekly content:", error);
+                    scheduleSection.classList.remove("hidden");
+                    scheduleContainer.innerHTML = `
                         <div class="text-center py-8">
                             <p class="text-red-600">
-                                Failed to load videos. Please try refreshing the page.
+                                Failed to load content. Please try refreshing the page.
                             </p>
                         </div>
                     `;
@@ -120,7 +529,7 @@ import Layout from "../layouts/MainLayout.astro";
             }
 
             // Call the function to fetch and render
-            fetchVideos();
+            fetchContent();
         });
     </script>
 </Layout>
