@@ -9,42 +9,17 @@ import Layout from "../layouts/MainLayout.astro";
             class="relative rounded-lg overflow-hidden shadow-inner"
             style="height: 500px"
         >
+            <!-- Loading state for carousel -->
             <div
-                class="carousel-slide absolute top-0 left-0 w-full h-full opacity-100"
+                id="carousel-loading"
+                class="absolute inset-0 flex items-center justify-center bg-gray-100"
             >
-                <img
-                    src="/assets/carousel/alpaca.jpg"
-                    class="w-full h-full object-cover"
-                    alt="Alpaca farm event"
-                />
+                <p class="text-gray-600">Loading images...</p>
             </div>
-            <div
-                class="carousel-slide absolute top-0 left-0 w-full h-full opacity-0"
-            >
-                <img
-                    src="/assets/carousel/rainbow.jpg"
-                    class="w-full h-full object-cover"
-                    alt="Rainbow color shirts"
-                />
-            </div>
-            <div
-                class="carousel-slide absolute top-0 left-0 w-full h-full opacity-0"
-            >
-                <img
-                    src="/assets/carousel/formal.jpg"
-                    class="w-full h-full object-cover"
-                    alt="Formal wear photo"
-                />
-            </div>
-            <div
-                class="carousel-slide absolute top-0 left-0 w-full h-full opacity-0"
-            >
-                <img
-                    src="/assets/carousel/diwali.jpg"
-                    class="w-full h-full object-cover"
-                    alt="Diwali celebration"
-                />
-            </div>
+
+            <!-- Carousel slides will be dynamically inserted here -->
+            <div id="carousel-slides-container"></div>
+
             <button
                 id="carousel-prev"
                 class="absolute top-1/2 left-4 -translate-y-1/2 bg-black/30 text-white rounded-full p-2 hover:bg-black/50 transition z-10"
@@ -85,18 +60,7 @@ import Layout from "../layouts/MainLayout.astro";
                 id="carousel-dots"
                 class="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2 z-10"
             >
-                <button
-                    class="carousel-dot w-3 h-3 bg-white/50 rounded-full transition"
-                ></button>
-                <button
-                    class="carousel-dot w-3 h-3 bg-white/50 rounded-full transition"
-                ></button>
-                <button
-                    class="carousel-dot w-3 h-3 bg-white/50 rounded-full transition"
-                ></button>
-                <button
-                    class="carousel-dot w-3 h-3 bg-white/50 rounded-full transition"
-                ></button>
+                <!-- Dots will be dynamically inserted here -->
             </div>
         </div>
 
@@ -115,52 +79,151 @@ import Layout from "../layouts/MainLayout.astro";
 
     <script>
         document.addEventListener("DOMContentLoaded", function () {
+            // Google Sheets configuration for photos
+            const SPREADSHEET_ID =
+                "1fTnSw2wZYzWLAa9jT0FA26oeSl5SUSKpgrRf0z_U9c4";
+            const PHOTOS_SHEET_GID = "1410230580"; // The sheet with photo IDs
+
+            const PHOTOS_JSON_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&gid=${PHOTOS_SHEET_GID}`;
+
             const carousel = document.getElementById("image-carousel");
-            if (carousel) {
-                // ... (all your existing carousel JS) ...
-                const slides = carousel.querySelectorAll(".carousel-slide");
-                const dots = carousel.querySelectorAll(".carousel-dot");
+            const slidesContainer = document.getElementById(
+                "carousel-slides-container",
+            );
+            const dotsContainer = document.getElementById("carousel-dots");
+            const loadingElement = document.getElementById("carousel-loading");
+
+            let slides = [];
+            let dots = [];
+            let currentSlide = 0;
+            let autoSlideInterval;
+            let totalSlides = 0;
+
+            // Fetch photos from Google Sheets
+            async function fetchPhotos() {
+                try {
+                    const response = await fetch(PHOTOS_JSON_URL);
+                    if (!response.ok) {
+                        throw new Error("Network response was not ok");
+                    }
+                    let text = await response.text();
+
+                    // Clean the JSONP response
+                    const jsonText = text.substring(47, text.length - 2);
+                    const data = JSON.parse(jsonText);
+
+                    // Extract photo data (skip header row)
+                    const photos = data.table.rows
+                        .slice(1) // Skip header row
+                        .map((row) => ({
+                            photoId: row.c[0] ? row.c[0].v : null,
+                            photoName: row.c[1] ? row.c[1].v : null,
+                        }))
+                        .filter((item) => item.photoId); // Filter out empty rows
+
+                    if (photos.length > 0) {
+                        renderCarousel(photos);
+                    } else {
+                        showCarouselError("No photos found");
+                    }
+                } catch (error) {
+                    console.error("Error fetching photos:", error);
+                    showCarouselError("Failed to load photos");
+                }
+            }
+
+            // Render carousel with photos
+            function renderCarousel(photos) {
+                // Clear loading state
+                loadingElement.style.display = "none";
+
+                // Generate slide HTML
+                photos.forEach((photo, index) => {
+                    const slideHtml = `
+                        <div class="carousel-slide absolute top-0 left-0 w-full h-full ${index === 0 ? "opacity-100" : "opacity-0"} transition-opacity duration-500">
+                            <iframe
+                                src="https://drive.google.com/file/d/${photo.photoId}/preview"
+                                class="w-full h-full"
+                                frameborder="0"
+                                allow="autoplay"
+                            ></iframe>
+                        </div>
+                    `;
+                    slidesContainer.innerHTML += slideHtml;
+
+                    // Generate dot HTML
+                    const dotHtml = `
+                        <button class="carousel-dot w-3 h-3 ${index === 0 ? "bg-white" : "bg-white/50"} rounded-full transition"></button>
+                    `;
+                    dotsContainer.innerHTML += dotHtml;
+                });
+
+                // Get references to dynamically created elements
+                slides = carousel.querySelectorAll(".carousel-slide");
+                dots = carousel.querySelectorAll(".carousel-dot");
+                totalSlides = slides.length;
+
+                // Initialize carousel functionality
+                initializeCarousel();
+            }
+
+            // Show error state
+            function showCarouselError(message) {
+                loadingElement.innerHTML = `<p class="text-red-600">${message}</p>`;
+            }
+
+            // Initialize carousel functionality
+            function initializeCarousel() {
                 const prevButton = document.getElementById("carousel-prev");
                 const nextButton = document.getElementById("carousel-next");
-                let currentSlide = 0;
-                const totalSlides = slides.length;
-                let autoSlideInterval;
+
                 function updateCarousel(newIndex) {
                     if (newIndex < 0) {
                         newIndex = totalSlides - 1;
                     } else if (newIndex >= totalSlides) {
                         newIndex = 0;
                     }
+
                     slides[currentSlide].classList.add("opacity-0");
                     dots[currentSlide].classList.add("bg-white/50");
                     dots[currentSlide].classList.remove("bg-white");
+
                     slides[newIndex].classList.remove("opacity-0");
                     dots[newIndex].classList.remove("bg-white/50");
                     dots[newIndex].classList.add("bg-white");
+
                     currentSlide = newIndex;
                 }
+
                 function nextSlide() {
                     updateCarousel(currentSlide + 1);
                 }
+
                 function prevSlide() {
                     updateCarousel(currentSlide - 1);
                 }
+
                 function startAutoSlide() {
                     autoSlideInterval = setInterval(nextSlide, 5000);
                 }
+
                 function stopAutoSlide() {
                     clearInterval(autoSlideInterval);
                 }
+
+                // Event listeners
                 nextButton.addEventListener("click", () => {
                     nextSlide();
                     stopAutoSlide();
                     startAutoSlide();
                 });
+
                 prevButton.addEventListener("click", () => {
                     prevSlide();
                     stopAutoSlide();
                     startAutoSlide();
                 });
+
                 dots.forEach((dot, index) => {
                     dot.addEventListener("click", () => {
                         updateCarousel(index);
@@ -168,9 +231,13 @@ import Layout from "../layouts/MainLayout.astro";
                         startAutoSlide();
                     });
                 });
-                updateCarousel(0);
+
+                // Start auto-slide
                 startAutoSlide();
             }
+
+            // Fetch photos when page loads
+            fetchPhotos();
         });
     </script>
 
