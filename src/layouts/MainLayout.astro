@@ -113,6 +113,17 @@ import "../styles/global.css";
                         >
                             Feedback
                         </a>
+                        <a
+                            href="/stocks"
+                            class={`py-4 px-1 border-b-4 text-sm md:text-base font-medium ${
+                                Astro.url.pathname === "/stocks" ||
+                                Astro.url.pathname === "/stocks/"
+                                    ? "text-hbs-crimson border-hbs-crimson"
+                                    : "text-gray-600 border-transparent hover:text-gray-800 hover:border-gray-300"
+                            }`}
+                        >
+                            Stocks
+                        </a>
                     </div>
                 </div>
             </nav>

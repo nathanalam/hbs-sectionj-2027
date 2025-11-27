@@ -1,0 +1,229 @@
+---
+import Layout from '../layouts/MainLayout.astro';
+---
+
+<Layout>
+  <div class="bg-white p-6 md:p-8 rounded-lg shadow-lg">
+    <h2 class="text-3xl font-bold text-gray-800 mb-2">Portfolio Simulator</h2>
+    <p class="text-gray-600 mb-6">Build a portfolio of stocks and simulate its performance over the last week.</p>
+
+    <!-- API Key Section -->
+    <div class="bg-gray-50 p-4 rounded-lg border mb-6">
+      <h3 class="text-lg font-semibold text-gray-800 mb-2">1. Enter Your API Key</h3>
+      <p class="text-sm text-gray-600 mb-3">
+        This tool uses the Alpha Vantage API to get stock data. Please provide your own free API key to continue.
+      </p>
+      <div class="flex items-center space-x-2">
+        <input type="text" id="api-key" placeholder="Your Alpha Vantage API Key" class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-hbs-crimson focus:border-hbs-crimson sm:text-sm">
+        <a href="https://www.alphavantage.co/support/#api-key" target="_blank" class="text-sm text-hbs-crimson hover:underline whitespace-nowrap">Get a Free Key</a>
+      </div>
+       <p class="text-xs text-gray-500 mt-2">Your key will be stored in your browser's local storage for convenience.</p>
+    </div>
+
+    <!-- Portfolio Builder Section -->
+    <div class="pt-4">
+        <h3 class="text-lg font-semibold text-gray-800 mb-3">2. Build Your Portfolio</h3>
+        <form id="portfolio-form" class="space-y-4">
+            <div id="stock-list" class="space-y-4">
+                <!-- Stock rows will be dynamically inserted here -->
+            </div>
+            <div class="flex items-center space-x-4">
+              <button type="button" id="add-stock" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-md text-sm">
+                  + Add Stock
+              </button>
+              <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-hbs-crimson hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-hbs-crimson">
+                  Calculate Performance
+              </button>
+            </div>
+             <p class="text-xs text-gray-500 mt-2">Note: Performance is calculated based on the price from 7 days ago versus the latest price.</p>
+        </form>
+    </div>
+
+    <!-- Results Section -->
+    <div id="results" class="mt-8"></div>
+  </div>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const apiKeyInput = document.getElementById('api-key') as HTMLInputElement;
+        const addStockBtn = document.getElementById('add-stock');
+        const stockListDiv = document.getElementById('stock-list');
+        const portfolioForm = document.getElementById('portfolio-form');
+        const resultsDiv = document.getElementById('results');
+
+        // Load API key from local storage
+        apiKeyInput.value = localStorage.getItem('alphaVantageApiKey') || '';
+
+        // Save API key to local storage on change
+        apiKeyInput.addEventListener('change', () => {
+            localStorage.setItem('alphaVantageApiKey', apiKeyInput.value);
+        });
+
+        const addStockRow = () => {
+            const stockId = Date.now();
+            const stockRow = document.createElement('div');
+            stockRow.classList.add('flex', 'items-center', 'space-x-3', 'p-2', 'bg-white', 'rounded-md', 'border');
+            stockRow.setAttribute('data-id', stockId.toString());
+
+            stockRow.innerHTML = `
+                <div class="flex-grow">
+                    <label for="ticker-${stockId}" class="sr-only">Ticker</label>
+                    <input type="text" id="ticker-${stockId}" name="ticker" placeholder="e.g., AAPL" class="w-full border-gray-300 rounded-md shadow-sm sm:text-sm" required>
+                </div>
+                <div class="flex-grow">
+                    <label for="weight-${stockId}" class="sr-only">Weight</label>
+                    <input type="range" id="weight-${stockId}" name="weight" min="1" max="100" value="50" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                </div>
+                <div class="w-16 text-center">
+                    <span id="weight-value-${stockId}" class="text-sm font-medium text-gray-700">50%</span>
+                </div>
+                <button type="button" class="text-red-500 hover:text-red-700 font-bold remove-stock">&times;</button>
+            `;
+
+            stockListDiv.appendChild(stockRow);
+
+            // Add event listener for the new weight slider
+            const weightSlider = stockRow.querySelector('input[type="range"]');
+            const weightValue = stockRow.querySelector(`#weight-value-${stockId}`);
+            weightSlider.addEventListener('input', (e) => {
+                weightValue.textContent = `${(e.target as HTMLInputElement).value}%`;
+            });
+
+            // Add event listener for the remove button
+            const removeButton = stockRow.querySelector('.remove-stock');
+            removeButton.addEventListener('click', () => {
+                stockRow.remove();
+            });
+        };
+
+        addStockBtn.addEventListener('click', addStockRow);
+        // Add one stock row by default
+        addStockRow();
+
+
+        portfolioForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const apiKey = apiKeyInput.value.trim();
+            if (!apiKey) {
+                resultsDiv.innerHTML = '<p class="text-red-500">Please enter your Alpha Vantage API key.</p>';
+                return;
+            }
+
+            const stocks = Array.from(stockListDiv.children).map(row => {
+                const tickerInput = row.querySelector('input[name="ticker"]') as HTMLInputElement;
+                const weightInput = row.querySelector('input[name="weight"]') as HTMLInputElement;
+                return {
+                    ticker: tickerInput.value.toUpperCase(),
+                    weight: parseInt(weightInput.value, 10)
+                };
+            });
+
+            if (stocks.some(s => !s.ticker)) {
+                 resultsDiv.innerHTML = '<p class="text-red-500">Please enter a ticker for all stocks.</p>';
+                return;
+            }
+
+            resultsDiv.innerHTML = '<p class="text-gray-600">Calculating portfolio performance...</p>';
+
+            try {
+                const sevenDaysAgo = new Date();
+                sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+                const promises = stocks.map(stock => fetchData(stock.ticker, apiKey, sevenDaysAgo));
+                const results = await Promise.all(promises);
+
+                let totalWeightedPerformance = 0;
+                let totalWeight = 0;
+                let resultsHTML = '<h3 class="text-2xl font-bold text-gray-800 mb-4">Portfolio Performance</h3>';
+                resultsHTML += '<div class="space-y-4">';
+
+                results.forEach((data, index) => {
+                    if (data.error) {
+                         resultsHTML += `<div class="p-4 bg-red-50 border-l-4 border-red-400"><p class="font-semibold text-red-800">${stocks[index].ticker}: Error</p><p class="text-sm text-red-600">${data.error}</p></div>`;
+                    } else {
+                        const stock = stocks[index];
+                        const performance = ((data.latestPrice - data.historicalPrice) / data.historicalPrice) * 100;
+                        totalWeightedPerformance += performance * stock.weight;
+                        totalWeight += stock.weight;
+
+                        resultsHTML += `
+                            <div class="p-4 bg-gray-50 rounded-lg border">
+                                <div class="flex justify-between items-center">
+                                    <p class="text-lg font-bold text-gray-900">${stock.ticker} <span class="text-sm font-normal text-gray-600">(${stock.weight}% weight)</span></p>
+                                    <p class="text-lg font-bold ${performance >= 0 ? 'text-green-500' : 'text-red-500'}">${performance.toFixed(2)}%</p>
+                                </div>
+                                <div class="text-sm text-gray-600 mt-2">
+                                    <p>7-Day Ago Price: $${data.historicalPrice.toFixed(2)} (on ${data.historicalDate})</p>
+                                    <p>Latest Price: $${data.latestPrice.toFixed(2)}</p>
+                                </div>
+                            </div>
+                        `;
+                    }
+                });
+
+                if (totalWeight > 0) {
+                     const weightedAveragePerformance = totalWeightedPerformance / totalWeight;
+                     resultsHTML += `
+                        <div class="p-4 bg-white border-t-4 ${weightedAveragePerformance >= 0 ? 'border-green-500' : 'border-red-500'} rounded-b shadow-md">
+                           <div class="flex justify-between items-center">
+                             <p class="text-xl font-bold text-gray-900">Total Portfolio Performance</p>
+                             <p class="text-2xl font-extrabold ${weightedAveragePerformance >= 0 ? 'text-green-600' : 'text-red-600'}">${weightedAveragePerformance.toFixed(2)}%</p>
+                           </div>
+                        </div>
+                     `;
+                }
+
+                resultsHTML += '</div>';
+                resultsDiv.innerHTML = resultsHTML;
+
+            } catch (error) {
+                resultsDiv.innerHTML = `<p class="text-red-500">An unexpected error occurred: ${error.message}</p>`;
+            }
+        });
+
+        async function fetchData(ticker, apiKey, historicalDate) {
+            try {
+                // Fetch historical and latest data in parallel
+                const [historicalResponse, latestResponse] = await Promise.all([
+                    fetch(`https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${ticker}&apikey=${apiKey}`),
+                    fetch(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${ticker}&apikey=${apiKey}`)
+                ]);
+
+                const historicalData = await historicalResponse.json();
+                const latestData = await latestResponse.json();
+
+                if (historicalData['Note'] || latestData['Note']) {
+                    return { error: 'API rate limit reached. Please wait a minute and try again.' };
+                }
+                if (!historicalData['Time Series (Daily)'] || !latestData['Global Quote'] || Object.keys(latestData['Global Quote']).length === 0) {
+                    return { error: 'Invalid ticker symbol or no data available.' };
+                }
+
+                const timeSeries = historicalData['Time Series (Daily)'];
+                let effectiveDate = new Date(historicalDate);
+                let priceData = null;
+
+                for (let i = 0; i < 5; i++) { // Check up to 5 days back for a trading day
+                    const dateString = effectiveDate.toISOString().split('T')[0];
+                    if (timeSeries[dateString]) {
+                        priceData = timeSeries[dateString];
+                        break;
+                    }
+                    effectiveDate.setDate(effectiveDate.getDate() - 1);
+                }
+
+                if (!priceData) {
+                    return { error: 'Could not find trading data within the last week.' };
+                }
+
+                return {
+                    historicalPrice: parseFloat(priceData['4. close']),
+                    historicalDate: effectiveDate.toISOString().split('T')[0],
+                    latestPrice: parseFloat(latestData['Global Quote']['05. price']),
+                };
+            } catch (e) {
+                return { error: 'Failed to fetch data. Check your network connection.' };
+            }
+        }
+    });
+  </script>
+</Layout>
