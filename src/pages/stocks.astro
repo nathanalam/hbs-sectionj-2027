@@ -1,0 +1,122 @@
+---
+import Layout from '../layouts/MainLayout.astro';
+---
+
+<Layout>
+  <div class="bg-white p-6 md:p-8 rounded-lg shadow-lg">
+    <h2 class="text-3xl font-bold text-gray-800 mb-6">Stock Simulator</h2>
+    <p class="text-gray-600 mb-4">
+      Enter a stock ticker and select a date from the past week to see its performance.
+    </p>
+
+    <form id="stock-form" class="space-y-4">
+      <div>
+        <label for="ticker" class="block text-sm font-medium text-gray-700">Stock Ticker</label>
+        <input type="text" name="ticker" id="ticker" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-hbs-crimson focus:border-hbs-crimson sm:text-sm" placeholder="e.g., AAPL" required>
+      </div>
+
+      <div>
+        <label for="date" class="block text-sm font-medium text-gray-700">Pick Date (within last 7 days)</label>
+        <input type="date" id="date" name="date" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-hbs-crimson focus:border-hbs-crimson sm:text-sm" required>
+      </div>
+
+      <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-hbs-crimson hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-hbs-crimson">
+        Check Performance
+      </button>
+    </form>
+    <div id="results" class="mt-8"></div>
+  </div>
+
+  <script>
+    document.getElementById('stock-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const ticker = (document.getElementById('ticker') as HTMLInputElement).value;
+      const selectedDateString = (document.getElementById('date') as HTMLInputElement).value;
+      const resultsDiv = document.getElementById('results');
+      resultsDiv.innerHTML = '<p class="text-gray-600">Loading...</p>';
+
+      // Normalize dates to midnight UTC to avoid timezone issues
+      const getUTCDate = (dateString) => {
+        const date = new Date(dateString);
+        return new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+      };
+
+      const selectedDate = getUTCDate(selectedDateString);
+      const today = getUTCDate(new Date().toISOString().split('T')[0]);
+
+      const sevenDaysAgo = new Date(today);
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+      if (selectedDate > today) {
+        resultsDiv.innerHTML = '<p class="text-red-500">Please select a date in the past.</p>';
+        return;
+      }
+
+      if (selectedDate < sevenDaysAgo) {
+        resultsDiv.innerHTML = '<p class="text-red-500">Please select a date within the last 7 days.</p>';
+        return;
+      }
+
+      try {
+        const apiKey = 'demo';
+        const historicalUrl = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${ticker}&apikey=${apiKey}`;
+
+        const historicalResponse = await fetch(historicalUrl);
+        const historicalData = await historicalResponse.json();
+
+        if (historicalData['Error Message'] || !historicalData['Time Series (Daily)']) {
+          throw new Error('Could not retrieve historical data. The demo API key may have reached its limit or the ticker is invalid.');
+        }
+
+        const timeSeries = historicalData['Time Series (Daily)'];
+        let effectiveDate = new Date(selectedDate);
+        let historicalPriceData = null;
+        let effectiveDateString = selectedDateString;
+
+        // Look back up to 5 days to find the last trading day
+        for (let i = 0; i < 5; i++) {
+          effectiveDateString = effectiveDate.toISOString().split('T')[0];
+          if (timeSeries[effectiveDateString]) {
+            historicalPriceData = timeSeries[effectiveDateString];
+            break;
+          }
+          effectiveDate.setDate(effectiveDate.getDate() - 1);
+        }
+
+        if (!historicalPriceData) {
+          throw new Error('Could not find trading data for the selected date or the prior 5 days.');
+        }
+
+        const historicalPrice = historicalPriceData['4. close'];
+
+        const latestUrl = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${ticker}&apikey=${apiKey}`;
+        const latestResponse = await fetch(latestUrl);
+        const latestData = await latestResponse.json();
+
+        if (latestData['Error Message'] || !latestData['Global Quote'] || Object.keys(latestData['Global Quote']).length === 0) {
+            throw new Error('Could not retrieve latest quote data. The demo API key may have reached its limit.');
+        }
+
+        const latestPrice = latestData['Global Quote']['05. price'];
+
+        const performance = ((latestPrice - historicalPrice) / historicalPrice) * 100;
+
+        let dateMessage = `Price on ${effectiveDateString}`;
+        if (effectiveDateString !== selectedDateString) {
+            dateMessage = `Price on ${effectiveDateString} (most recent trading day)`;
+        }
+
+        resultsDiv.innerHTML = `
+          <h3 class="text-2xl font-bold text-gray-800 mb-4">Performance for ${ticker}</h3>
+          <p class="text-gray-600">Selected Date: ${selectedDateString}</p>
+          <p class="text-gray-600">${dateMessage}: $${Number(historicalPrice).toFixed(2)}</p>
+          <p class="text-gray-600">Latest Price: $${Number(latestPrice).toFixed(2)}</p>
+          <p class="text-gray-600 font-bold">Performance: <span class="${performance >= 0 ? 'text-green-500' : 'text-red-500'}">${performance.toFixed(2)}%</span></p>
+        `;
+      } catch (error) {
+        resultsDiv.innerHTML = `<p class="text-red-500">Error: ${error.message}</p>`;
+        console.error(error);
+      }
+    });
+  </script>
+</Layout>
