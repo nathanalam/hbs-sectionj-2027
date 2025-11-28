@@ -51,7 +51,12 @@ import Layout from '../layouts/MainLayout.astro';
         <div class="relative h-96 w-full">
             <canvas id="frontier-chart"></canvas>
         </div>
-        <p class="text-sm text-gray-500 mt-2">Plot of Estimated Annual Return vs. Annualized Volatility for each calculated portfolio.</p>
+        <p class="text-sm text-gray-500 mt-2">
+            <strong>Red:</strong> Your Portfolio |
+            <strong>Gold:</strong> Max Sharpe Ratio Portfolio |
+            <strong>Line:</strong> Efficient Frontier |
+            <strong>Grey:</strong> Simulated Portfolios
+        </p>
     </div>
   </div>
 
@@ -75,7 +80,9 @@ import Layout from '../layouts/MainLayout.astro';
         let frontierChart = null;
 
         function initChart() {
-            if (frontierChart) return;
+            if (frontierChart) {
+                frontierChart.destroy();
+            }
 
             // Check if Chart is loaded
             if (typeof Chart === 'undefined') {
@@ -86,14 +93,48 @@ import Layout from '../layouts/MainLayout.astro';
             frontierChart = new Chart(ctx, {
                 type: 'scatter',
                 data: {
-                    datasets: [{
-                        label: 'Portfolios',
-                        data: [], // {x: volatility, y: return, composition: []}
-                        backgroundColor: 'rgba(164, 16, 52, 0.6)', // HBS Crimson with opacity
-                        borderColor: 'rgba(164, 16, 52, 1)',
-                        pointRadius: 6,
-                        pointHoverRadius: 8
-                    }]
+                    datasets: [
+                        {
+                            label: 'Simulated Portfolios',
+                            data: [],
+                            backgroundColor: 'rgba(200, 200, 200, 0.5)',
+                            pointRadius: 2,
+                            pointHoverRadius: 2,
+                            order: 3
+                        },
+                        {
+                            label: 'Efficient Frontier',
+                            data: [],
+                            type: 'line',
+                            borderColor: 'rgba(50, 50, 50, 0.8)',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            fill: false,
+                            tension: 0.1,
+                            order: 2
+                        },
+                        {
+                            label: 'Max Sharpe Portfolio',
+                            data: [],
+                            backgroundColor: 'gold',
+                            borderColor: 'orange',
+                            borderWidth: 1,
+                            pointRadius: 8,
+                            pointHoverRadius: 10,
+                            pointStyle: 'star',
+                            order: 1
+                        },
+                        {
+                            label: 'Your Portfolio',
+                            data: [],
+                            backgroundColor: 'rgba(164, 16, 52, 1)', // HBS Crimson
+                            borderColor: 'white',
+                            borderWidth: 2,
+                            pointRadius: 8,
+                            pointHoverRadius: 10,
+                            order: 0
+                        }
+                    ]
                 },
                 options: {
                     responsive: true,
@@ -120,7 +161,11 @@ import Layout from '../layouts/MainLayout.astro';
                                     const point = context.raw;
                                     const returnVal = point.y.toFixed(2);
                                     const volVal = point.x.toFixed(2);
-                                    return `Return: ${returnVal}%, Volatility: ${volVal}%`;
+                                    let label = `Return: ${returnVal}%, Vol: ${volVal}%`;
+                                    if (point.sharpe) {
+                                        label += `, Sharpe: ${point.sharpe.toFixed(2)}`;
+                                    }
+                                    return label;
                                 },
                                 afterBody: function(context) {
                                     const point = context[0].raw;
@@ -129,6 +174,11 @@ import Layout from '../layouts/MainLayout.astro';
                                     }
                                     return [];
                                 }
+                            }
+                        },
+                        legend: {
+                            labels: {
+                                usePointStyle: true
                             }
                         }
                     }
@@ -233,8 +283,11 @@ import Layout from '../layouts/MainLayout.astro';
             try {
                 // Fetch data for all stocks
                 // Using 30 days of data for volatility calculation
-                const promises = stocks.map(stock => fetchData(stock.ticker, apiKey));
-                const results = await Promise.all(promises);
+                const stockPromises = stocks.map(stock => fetchData(stock.ticker, apiKey));
+                const [results, riskFreeRate] = await Promise.all([
+                    Promise.all(stockPromises),
+                    getRiskFreeRate(apiKey)
+                ]);
 
                 let totalWeight = stocks.reduce((sum, s) => sum + s.weight, 0);
 
@@ -276,84 +329,95 @@ import Layout from '../layouts/MainLayout.astro';
                      return;
                 }
 
-                // Calculate daily returns for each stock and portfolio
-                const portfolioDailyReturns = [];
-                // Start from index 1 (second oldest date) to calculate return from previous day
-                for (let i = 1; i < commonDates.length; i++) {
-                    const today = commonDates[i];
-                    const yesterday = commonDates[i-1];
-                    let dailyPortfolioReturn = 0;
+                // Normalized weights for user portfolio
+                const userWeights = stocks.map(s => s.weight / totalWeight);
 
-                    validResults.forEach(item => {
-                        const priceToday = item.data.dailyPrices[today];
-                        const priceYesterday = item.data.dailyPrices[yesterday];
-                        const stockReturn = (priceToday - priceYesterday) / priceYesterday;
-                        const weight = item.stock.weight / totalWeight; // Normalize weight
-                        dailyPortfolioReturn += stockReturn * weight;
-                    });
-                    portfolioDailyReturns.push(dailyPortfolioReturn);
-                }
+                // Helper to calculate metrics for a set of weights
+                const calculateMetrics = (currentWeights) => {
+                    const portfolioDailyReturns = [];
+                    for (let i = 1; i < commonDates.length; i++) {
+                        const today = commonDates[i];
+                        const yesterday = commonDates[i-1];
+                        let dailyPortfolioReturn = 0;
 
-                // Calculate Metrics
-                const meanDailyReturn = portfolioDailyReturns.reduce((sum, r) => sum + r, 0) / portfolioDailyReturns.length;
+                        validResults.forEach((item, idx) => {
+                            const priceToday = item.data.dailyPrices[today];
+                            const priceYesterday = item.data.dailyPrices[yesterday];
+                            const stockReturn = (priceToday - priceYesterday) / priceYesterday;
+                            dailyPortfolioReturn += stockReturn * currentWeights[idx];
+                        });
+                        portfolioDailyReturns.push(dailyPortfolioReturn);
+                    }
 
-                // Standard Deviation
-                const variance = portfolioDailyReturns.reduce((sum, r) => sum + Math.pow(r - meanDailyReturn, 2), 0) / (portfolioDailyReturns.length - 1);
-                const stdDev = Math.sqrt(variance);
+                    const meanDailyReturn = portfolioDailyReturns.reduce((sum, r) => sum + r, 0) / portfolioDailyReturns.length;
+                    const variance = portfolioDailyReturns.reduce((sum, r) => sum + Math.pow(r - meanDailyReturn, 2), 0) / (portfolioDailyReturns.length - 1);
+                    const stdDev = Math.sqrt(variance);
 
-                // Annualize (assuming 252 trading days)
-                const annualizedVolatility = stdDev * Math.sqrt(252) * 100; // in percent
-                const annualizedReturn = meanDailyReturn * 252 * 100; // in percent
+                    const annualizedVolatility = stdDev * Math.sqrt(252) * 100; // percent
+                    const annualizedReturn = meanDailyReturn * 252 * 100; // percent
+                    const sharpeRatio = (annualizedReturn - riskFreeRate) / annualizedVolatility;
 
-                // Total Return over the period (Cumulative)
+                    return { annualizedReturn, annualizedVolatility, sharpeRatio };
+                };
+
+                // Metrics for User Portfolio
+                const userMetrics = calculateMetrics(userWeights);
+
+                // Calculate Cumulative Return for User
                 const startPriceDate = commonDates[0];
                 const endPriceDate = commonDates[commonDates.length - 1];
                 let portfolioCumulativeReturn = 0;
-
-                validResults.forEach(item => {
+                validResults.forEach((item, idx) => {
                     const startPrice = item.data.dailyPrices[startPriceDate];
                     const endPrice = item.data.dailyPrices[endPriceDate];
                     const stockReturn = (endPrice - startPrice) / startPrice;
-                    portfolioCumulativeReturn += stockReturn * (item.stock.weight / totalWeight);
+                    portfolioCumulativeReturn += stockReturn * userWeights[idx];
                 });
                 portfolioCumulativeReturn *= 100;
 
+
                 // Render Results
                 let resultsHTML = '<h3 class="text-2xl font-bold text-gray-800 mb-4">Portfolio Analysis</h3>';
-                resultsHTML += `<p class="text-sm text-gray-500 mb-4">Analysis based on data from ${startPriceDate} to ${endPriceDate} (${commonDates.length} trading days).</p>`;
+                resultsHTML += `<p class="text-sm text-gray-500 mb-4">Analysis based on data from ${startPriceDate} to ${endPriceDate} (${commonDates.length} trading days). Using Risk-Free Rate: ${riskFreeRate.toFixed(2)}%.</p>`;
 
-                resultsHTML += '<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">';
-                // Total Return Card
+                resultsHTML += '<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">';
+                // Total Return
                 resultsHTML += `
                     <div class="p-4 bg-white border rounded shadow-sm">
                         <p class="text-gray-500 text-sm font-bold uppercase">Total Return</p>
                         <p class="text-2xl font-bold ${portfolioCumulativeReturn >= 0 ? 'text-green-600' : 'text-red-600'}">${portfolioCumulativeReturn.toFixed(2)}%</p>
                     </div>
                 `;
-                // Annualized Volatility Card
+                // Volatility
                 resultsHTML += `
                     <div class="p-4 bg-white border rounded shadow-sm">
-                        <p class="text-gray-500 text-sm font-bold uppercase">Annualized Volatility</p>
-                        <p class="text-2xl font-bold text-gray-800">${annualizedVolatility.toFixed(2)}%</p>
+                        <p class="text-gray-500 text-sm font-bold uppercase">Ann. Volatility</p>
+                        <p class="text-2xl font-bold text-gray-800">${userMetrics.annualizedVolatility.toFixed(2)}%</p>
                     </div>
                 `;
-                // Annualized Return (Est) Card
+                // Annual Return
                  resultsHTML += `
                     <div class="p-4 bg-white border rounded shadow-sm">
-                        <p class="text-gray-500 text-sm font-bold uppercase">Est. Annual Return</p>
-                        <p class="text-2xl font-bold ${annualizedReturn >= 0 ? 'text-green-600' : 'text-red-600'}">${annualizedReturn.toFixed(2)}%</p>
+                        <p class="text-gray-500 text-sm font-bold uppercase">Est. Ann. Return</p>
+                        <p class="text-2xl font-bold ${userMetrics.annualizedReturn >= 0 ? 'text-green-600' : 'text-red-600'}">${userMetrics.annualizedReturn.toFixed(2)}%</p>
+                    </div>
+                `;
+                // Sharpe Ratio
+                resultsHTML += `
+                    <div class="p-4 bg-white border rounded shadow-sm">
+                        <p class="text-gray-500 text-sm font-bold uppercase">Sharpe Ratio</p>
+                        <p class="text-2xl font-bold ${userMetrics.sharpeRatio >= 1 ? 'text-green-600' : (userMetrics.sharpeRatio >= 0 ? 'text-yellow-600' : 'text-red-600')}">${userMetrics.sharpeRatio.toFixed(2)}</p>
                     </div>
                 `;
                 resultsHTML += '</div>';
 
+                // Individual Stocks
                 resultsHTML += '<h4 class="text-lg font-bold text-gray-800 mb-3">Individual Stock Performance</h4>';
                 resultsHTML += '<div class="space-y-4">';
-
                 validResults.forEach(item => {
                     const startPrice = item.data.dailyPrices[startPriceDate];
                     const endPrice = item.data.dailyPrices[endPriceDate];
                     const performance = ((endPrice - startPrice) / startPrice) * 100;
-
                     resultsHTML += `
                         <div class="p-4 bg-gray-50 rounded-lg border">
                             <div class="flex justify-between items-center">
@@ -371,26 +435,100 @@ import Layout from '../layouts/MainLayout.astro';
 
                 resultsDiv.innerHTML = resultsHTML;
 
+                // --- Simulation Logic ---
+                // Generate random portfolios
+                const numSimulations = 500;
+                const simulatedPoints = [];
+                let bestSharpe = -Infinity;
+                let bestPortfolio = null;
+
+                for (let i = 0; i < numSimulations; i++) {
+                    // Generate random weights
+                    let randWeights = validResults.map(() => Math.random());
+                    const weightSum = randWeights.reduce((a, b) => a + b, 0);
+                    randWeights = randWeights.map(w => w / weightSum);
+
+                    const metrics = calculateMetrics(randWeights);
+
+                    const point = {
+                        x: metrics.annualizedVolatility,
+                        y: metrics.annualizedReturn,
+                        sharpe: metrics.sharpeRatio,
+                        composition: validResults.map((item, idx) => ({
+                            ticker: item.stock.ticker,
+                            weight: (randWeights[idx] * 100).toFixed(1)
+                        }))
+                    };
+                    simulatedPoints.push(point);
+
+                    if (metrics.sharpeRatio > bestSharpe) {
+                        bestSharpe = metrics.sharpeRatio;
+                        bestPortfolio = point;
+                    }
+                }
+
+                // Calculate Efficient Frontier Line (Upper Left Boundary)
+                // Sort by Return descending
+                simulatedPoints.sort((a, b) => b.y - a.y);
+
+                const frontierPoints = [];
+                let minVolSoFar = Infinity;
+
+                for (const pt of simulatedPoints) {
+                    if (pt.x < minVolSoFar) {
+                        frontierPoints.push(pt);
+                        minVolSoFar = pt.x;
+                    }
+                }
+                // Now frontierPoints is sorted by Return Descending.
+                // ChartJS line looks better if sorted by X (Volatility) or we can just draw it as is?
+                // Actually, efficient frontier is usually drawn as a curve.
+                // Let's sort by volatility for the line plot so it connects correctly left-to-right?
+                // The points are (Vol, Ret). The frontier goes from MinVol (lowest Return on frontier) up to MaxReturn.
+                // Our filtering logic produced points with increasing Return and decreasing Volatility (going backwards).
+                // So if we reverse it, we get increasing Volatility and increasing Return? No.
+                // As we go up in return, we must accept higher volatility (generally).
+                // Wait, my logic: Sort Desc Return. Keep if Vol < MinVol.
+                // High Return usually means High Vol.
+                // Top point: High Return, High Vol (maybe). MinVol is High.
+                // Next point: Lower Return. If Vol is lower than MinVol, keep it.
+                // So we get points where as Return Decreases, Volatility Decreases.
+                // So if we sort these by Volatility Ascending, we also get Return Ascending.
+                frontierPoints.sort((a, b) => a.x - b.x);
+
+
                 // Update Chart
                 chartContainer.style.display = 'block';
-                // Small delay to ensure container is visible and layout updated before chart render if needed
                 setTimeout(() => {
                     initChart();
                     if (frontierChart) {
-                        frontierChart.data.datasets[0].data.push({
-                            x: annualizedVolatility,
-                            y: annualizedReturn,
+                        // Dataset 0: Simulated (Grey)
+                        frontierChart.data.datasets[0].data = simulatedPoints;
+
+                        // Dataset 1: Frontier Line
+                        frontierChart.data.datasets[1].data = frontierPoints;
+
+                        // Dataset 2: Max Sharpe (Gold)
+                        frontierChart.data.datasets[2].data = bestPortfolio ? [bestPortfolio] : [];
+
+                        // Dataset 3: User Portfolio (Red)
+                        frontierChart.data.datasets[3].data = [{
+                            x: userMetrics.annualizedVolatility,
+                            y: userMetrics.annualizedReturn,
+                            sharpe: userMetrics.sharpeRatio,
                             composition: stocks.map(s => ({
                                 ticker: s.ticker,
                                 weight: (s.weight / totalWeight * 100).toFixed(1)
                             }))
-                        });
+                        }];
+
                         frontierChart.update();
                     }
                 }, 100);
 
 
             } catch (error) {
+                console.error(error);
                 resultsDiv.innerHTML = `<p class="text-red-500">An unexpected error occurred: ${error.message}</p>`;
             }
         });
@@ -428,6 +566,37 @@ import Layout from '../layouts/MainLayout.astro';
                 };
             } catch (e) {
                 return { error: 'Failed to fetch data. Check your network connection.' };
+            }
+        }
+
+        async function getRiskFreeRate(apiKey) {
+            try {
+                // Use cache to save API calls
+                const cacheKey = 'treasuryYield_3month';
+                const cached = localStorage.getItem(cacheKey);
+                if (cached) {
+                    const { value, timestamp } = JSON.parse(cached);
+                    // Cache for 24 hours
+                    if (Date.now() - timestamp < 24 * 60 * 60 * 1000) {
+                        return value;
+                    }
+                }
+
+                const response = await fetch(`https://www.alphavantage.co/query?function=TREASURY_YIELD&interval=monthly&maturity=3month&apikey=${apiKey}`);
+                const data = await response.json();
+
+                if (data.data && data.data.length > 0) {
+                    const rate = parseFloat(data.data[0].value);
+                    localStorage.setItem(cacheKey, JSON.stringify({
+                        value: rate,
+                        timestamp: Date.now()
+                    }));
+                    return rate;
+                }
+                return 4.0; // Default fallback
+            } catch (e) {
+                console.warn("Error fetching risk free rate, using default.", e);
+                return 4.0; // Default fallback
             }
         }
     });
