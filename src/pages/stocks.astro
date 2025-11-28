@@ -44,7 +44,20 @@ import Layout from '../layouts/MainLayout.astro';
 
     <!-- Results Section -->
     <div id="results" class="mt-8"></div>
+
+    <!-- Chart Section -->
+    <div class="mt-8 bg-gray-50 p-4 rounded-lg border" style="display:none;" id="chart-container">
+        <h3 class="text-xl font-bold text-gray-800 mb-4">Efficient Frontier Visualization</h3>
+        <div class="relative h-96 w-full">
+            <canvas id="frontier-chart"></canvas>
+        </div>
+        <p class="text-sm text-gray-500 mt-2">Plot of Estimated Annual Return vs. Annualized Volatility for each calculated portfolio.</p>
+    </div>
   </div>
+
+  <!-- Load Chart.js from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
   <script>
     import { POPULAR_STOCKS } from '../data/stocks.js';
 
@@ -55,6 +68,74 @@ import Layout from '../layouts/MainLayout.astro';
         const portfolioForm = document.getElementById('portfolio-form');
         const resultsDiv = document.getElementById('results');
         const popularStocksDatalist = document.getElementById('popular-stocks');
+        const chartContainer = document.getElementById('chart-container');
+        const ctx = document.getElementById('frontier-chart') as HTMLCanvasElement;
+
+        // Chart initialization
+        let frontierChart = null;
+
+        function initChart() {
+            if (frontierChart) return;
+
+            // Check if Chart is loaded
+            if (typeof Chart === 'undefined') {
+                console.error('Chart.js not loaded');
+                return;
+            }
+
+            frontierChart = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: 'Portfolios',
+                        data: [], // {x: volatility, y: return, composition: []}
+                        backgroundColor: 'rgba(164, 16, 52, 0.6)', // HBS Crimson with opacity
+                        borderColor: 'rgba(164, 16, 52, 1)',
+                        pointRadius: 6,
+                        pointHoverRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Annualized Volatility (%)'
+                            },
+                            beginAtZero: true
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Estimated Annual Return (%)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const point = context.raw;
+                                    const returnVal = point.y.toFixed(2);
+                                    const volVal = point.x.toFixed(2);
+                                    return `Return: ${returnVal}%, Volatility: ${volVal}%`;
+                                },
+                                afterBody: function(context) {
+                                    const point = context[0].raw;
+                                    if (point.composition) {
+                                        return ['Composition:', ...point.composition.map(s => ` ${s.ticker}: ${s.weight}%`)];
+                                    }
+                                    return [];
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
 
         // Populate datalist
         POPULAR_STOCKS.forEach(stock => {
@@ -181,10 +262,6 @@ import Layout from '../layouts/MainLayout.astro';
 
                 // Calculate Portfolio Returns
                 // Find common date range (intersection of dates)
-                // Assuming all stocks return data for recent trading days, we align by date.
-                // data.dailyPrices is { 'YYYY-MM-DD': price, ... }
-
-                // Get all dates from the first stock
                 let commonDates = Object.keys(validResults[0].data.dailyPrices).sort();
 
                 // Intersect with other stocks
@@ -226,8 +303,6 @@ import Layout from '../layouts/MainLayout.astro';
 
                 // Annualize (assuming 252 trading days)
                 const annualizedVolatility = stdDev * Math.sqrt(252) * 100; // in percent
-                // const annualizedReturn = Math.pow(1 + meanDailyReturn, 252) - 1; // Compound return
-                // Simple annualized return estimation:
                 const annualizedReturn = meanDailyReturn * 252 * 100; // in percent
 
                 // Total Return over the period (Cumulative)
@@ -296,6 +371,25 @@ import Layout from '../layouts/MainLayout.astro';
 
                 resultsDiv.innerHTML = resultsHTML;
 
+                // Update Chart
+                chartContainer.style.display = 'block';
+                // Small delay to ensure container is visible and layout updated before chart render if needed
+                setTimeout(() => {
+                    initChart();
+                    if (frontierChart) {
+                        frontierChart.data.datasets[0].data.push({
+                            x: annualizedVolatility,
+                            y: annualizedReturn,
+                            composition: stocks.map(s => ({
+                                ticker: s.ticker,
+                                weight: (s.weight / totalWeight * 100).toFixed(1)
+                            }))
+                        });
+                        frontierChart.update();
+                    }
+                }, 100);
+
+
             } catch (error) {
                 resultsDiv.innerHTML = `<p class="text-red-500">An unexpected error occurred: ${error.message}</p>`;
             }
@@ -319,8 +413,7 @@ import Layout from '../layouts/MainLayout.astro';
 
                 const timeSeries = data['Time Series (Daily)'];
                 // Get last 30 trading days (or less if not available)
-                const dates = Object.keys(timeSeries).sort(); // sort creates ascending order usually, but keys are YYYY-MM-DD strings so it works.
-                // Actually Object.keys order is not guaranteed, better sort explicitly.
+                const dates = Object.keys(timeSeries).sort();
                 dates.sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
 
                 const recentDates = dates.slice(-30);
