@@ -5,7 +5,7 @@ import Layout from '../layouts/MainLayout.astro';
 <Layout>
   <div class="bg-white p-6 md:p-8 rounded-lg shadow-lg">
     <h2 class="text-3xl font-bold text-gray-800 mb-2">Portfolio Simulator</h2>
-    <p class="text-gray-600 mb-6">Build a portfolio of stocks and simulate its performance over the last week.</p>
+    <p class="text-gray-600 mb-6">Build a portfolio of stocks. Metrics are calculated using 5 years of weekly data, while the total return is shown for the most recent week.</p>
 
     <!-- API Key Section -->
     <div class="bg-gray-50 p-4 rounded-lg border mb-6">
@@ -38,7 +38,7 @@ import Layout from '../layouts/MainLayout.astro';
                   Calculate Performance
               </button>
             </div>
-             <p class="text-xs text-gray-500 mt-2">Note: Performance is calculated based on daily returns over the last 30 trading days.</p>
+             <p class="text-xs text-gray-500 mt-2">Note: Volatility is calculated based on weekly returns over the last 5 years.</p>
         </form>
     </div>
 
@@ -282,7 +282,7 @@ import Layout from '../layouts/MainLayout.astro';
 
             try {
                 // Fetch data for all stocks
-                // Using 30 days of data for volatility calculation
+                // Using 5 years of weekly data for volatility calculation
                 const stockPromises = stocks.map(stock => fetchData(stock.ticker, apiKey));
                 const [results, riskFreeRate] = await Promise.all([
                     Promise.all(stockPromises),
@@ -315,11 +315,11 @@ import Layout from '../layouts/MainLayout.astro';
 
                 // Calculate Portfolio Returns
                 // Find common date range (intersection of dates)
-                let commonDates = Object.keys(validResults[0].data.dailyPrices).sort();
+                let commonDates = Object.keys(validResults[0].data.weeklyPrices).sort();
 
                 // Intersect with other stocks
                 for (let i = 1; i < validResults.length; i++) {
-                    const stockDates = new Set(Object.keys(validResults[i].data.dailyPrices));
+                    const stockDates = new Set(Object.keys(validResults[i].data.weeklyPrices));
                     commonDates = commonDates.filter(d => stockDates.has(d));
                 }
 
@@ -334,27 +334,27 @@ import Layout from '../layouts/MainLayout.astro';
 
                 // Helper to calculate metrics for a set of weights
                 const calculateMetrics = (currentWeights) => {
-                    const portfolioDailyReturns = [];
+                    const portfolioWeeklyReturns = [];
                     for (let i = 1; i < commonDates.length; i++) {
                         const today = commonDates[i];
-                        const yesterday = commonDates[i-1];
-                        let dailyPortfolioReturn = 0;
+                        const lastWeek = commonDates[i-1];
+                        let weeklyPortfolioReturn = 0;
 
                         validResults.forEach((item, idx) => {
-                            const priceToday = item.data.dailyPrices[today];
-                            const priceYesterday = item.data.dailyPrices[yesterday];
-                            const stockReturn = (priceToday - priceYesterday) / priceYesterday;
-                            dailyPortfolioReturn += stockReturn * currentWeights[idx];
+                            const priceToday = item.data.weeklyPrices[today];
+                            const priceLastWeek = item.data.weeklyPrices[lastWeek];
+                            const stockReturn = (priceToday - priceLastWeek) / priceLastWeek;
+                            weeklyPortfolioReturn += stockReturn * currentWeights[idx];
                         });
-                        portfolioDailyReturns.push(dailyPortfolioReturn);
+                        portfolioWeeklyReturns.push(weeklyPortfolioReturn);
                     }
 
-                    const meanDailyReturn = portfolioDailyReturns.reduce((sum, r) => sum + r, 0) / portfolioDailyReturns.length;
-                    const variance = portfolioDailyReturns.reduce((sum, r) => sum + Math.pow(r - meanDailyReturn, 2), 0) / (portfolioDailyReturns.length - 1);
+                    const meanWeeklyReturn = portfolioWeeklyReturns.reduce((sum, r) => sum + r, 0) / portfolioWeeklyReturns.length;
+                    const variance = portfolioWeeklyReturns.reduce((sum, r) => sum + Math.pow(r - meanWeeklyReturn, 2), 0) / (portfolioWeeklyReturns.length - 1);
                     const stdDev = Math.sqrt(variance);
 
-                    const annualizedVolatility = stdDev * Math.sqrt(252) * 100; // percent
-                    const annualizedReturn = meanDailyReturn * 252 * 100; // percent
+                    const annualizedVolatility = stdDev * Math.sqrt(52) * 100; // percent (52 weeks)
+                    const annualizedReturn = meanWeeklyReturn * 52 * 100; // percent
                     const sharpeRatio = (annualizedReturn - riskFreeRate) / annualizedVolatility;
 
                     return { annualizedReturn, annualizedVolatility, sharpeRatio };
@@ -363,29 +363,30 @@ import Layout from '../layouts/MainLayout.astro';
                 // Metrics for User Portfolio
                 const userMetrics = calculateMetrics(userWeights);
 
-                // Calculate Cumulative Return for User
-                const startPriceDate = commonDates[0];
+                // Calculate Return for the Last Week (Most recent data point)
                 const endPriceDate = commonDates[commonDates.length - 1];
-                let portfolioCumulativeReturn = 0;
+                const prevPriceDate = commonDates[commonDates.length - 2];
+                let portfolioLastWeekReturn = 0;
+
                 validResults.forEach((item, idx) => {
-                    const startPrice = item.data.dailyPrices[startPriceDate];
-                    const endPrice = item.data.dailyPrices[endPriceDate];
-                    const stockReturn = (endPrice - startPrice) / startPrice;
-                    portfolioCumulativeReturn += stockReturn * userWeights[idx];
+                    const endPrice = item.data.weeklyPrices[endPriceDate];
+                    const prevPrice = item.data.weeklyPrices[prevPriceDate];
+                    const stockReturn = (endPrice - prevPrice) / prevPrice;
+                    portfolioLastWeekReturn += stockReturn * userWeights[idx];
                 });
-                portfolioCumulativeReturn *= 100;
+                portfolioLastWeekReturn *= 100;
 
 
                 // Render Results
                 let resultsHTML = '<h3 class="text-2xl font-bold text-gray-800 mb-4">Portfolio Analysis</h3>';
-                resultsHTML += `<p class="text-sm text-gray-500 mb-4">Analysis based on data from ${startPriceDate} to ${endPriceDate} (${commonDates.length} trading days). Using Risk-Free Rate: ${riskFreeRate.toFixed(2)}%.</p>`;
+                resultsHTML += `<p class="text-sm text-gray-500 mb-4">Risk analysis based on 5 years of weekly data (${commonDates.length} weeks). Total Return shown is for the week ending ${endPriceDate}. Risk-Free Rate: ${riskFreeRate.toFixed(2)}%.</p>`;
 
                 resultsHTML += '<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">';
                 // Total Return
                 resultsHTML += `
                     <div class="p-4 bg-white border rounded shadow-sm">
-                        <p class="text-gray-500 text-sm font-bold uppercase">Total Return</p>
-                        <p class="text-2xl font-bold ${portfolioCumulativeReturn >= 0 ? 'text-green-600' : 'text-red-600'}">${portfolioCumulativeReturn.toFixed(2)}%</p>
+                        <p class="text-gray-500 text-sm font-bold uppercase">Total Return (1 Wk)</p>
+                        <p class="text-2xl font-bold ${portfolioLastWeekReturn >= 0 ? 'text-green-600' : 'text-red-600'}">${portfolioLastWeekReturn.toFixed(2)}%</p>
                     </div>
                 `;
                 // Volatility
@@ -412,12 +413,12 @@ import Layout from '../layouts/MainLayout.astro';
                 resultsHTML += '</div>';
 
                 // Individual Stocks
-                resultsHTML += '<h4 class="text-lg font-bold text-gray-800 mb-3">Individual Stock Performance</h4>';
+                resultsHTML += '<h4 class="text-lg font-bold text-gray-800 mb-3">Individual Stock Performance (Last Week)</h4>';
                 resultsHTML += '<div class="space-y-4">';
                 validResults.forEach(item => {
-                    const startPrice = item.data.dailyPrices[startPriceDate];
-                    const endPrice = item.data.dailyPrices[endPriceDate];
-                    const performance = ((endPrice - startPrice) / startPrice) * 100;
+                    const prevPrice = item.data.weeklyPrices[prevPriceDate];
+                    const endPrice = item.data.weeklyPrices[endPriceDate];
+                    const performance = ((endPrice - prevPrice) / prevPrice) * 100;
                     resultsHTML += `
                         <div class="p-4 bg-gray-50 rounded-lg border">
                             <div class="flex justify-between items-center">
@@ -425,8 +426,8 @@ import Layout from '../layouts/MainLayout.astro';
                                 <p class="text-lg font-bold ${performance >= 0 ? 'text-green-500' : 'text-red-500'}">${performance.toFixed(2)}%</p>
                             </div>
                             <div class="text-sm text-gray-600 mt-2">
-                                <p>Start Price: $${startPrice.toFixed(2)}</p>
-                                <p>End Price: $${endPrice.toFixed(2)}</p>
+                                <p>Prev Week: $${prevPrice.toFixed(2)}</p>
+                                <p>Latest: $${endPrice.toFixed(2)}</p>
                             </div>
                         </div>
                     `;
@@ -535,8 +536,8 @@ import Layout from '../layouts/MainLayout.astro';
 
         async function fetchData(ticker, apiKey) {
             try {
-                // Fetch daily series
-                const response = await fetch(`https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${ticker}&apikey=${apiKey}`);
+                // Fetch weekly series
+                const response = await fetch(`https://www.alphavantage.co/query?function=TIME_SERIES_WEEKLY&symbol=${ticker}&apikey=${apiKey}`);
                 const data = await response.json();
 
                 if (data['Note']) {
@@ -545,24 +546,24 @@ import Layout from '../layouts/MainLayout.astro';
                 if (data['Error Message']) {
                      return { error: `Invalid ticker: ${ticker}` };
                 }
-                if (!data['Time Series (Daily)']) {
+                if (!data['Weekly Time Series']) {
                     return { error: 'No data available.' };
                 }
 
-                const timeSeries = data['Time Series (Daily)'];
-                // Get last 30 trading days (or less if not available)
+                const timeSeries = data['Weekly Time Series'];
+                // Get last 5 years of weekly data (approx 260 weeks)
                 const dates = Object.keys(timeSeries).sort();
                 dates.sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
 
-                const recentDates = dates.slice(-30);
+                const recentDates = dates.slice(-260);
 
-                const dailyPrices = {};
+                const weeklyPrices = {};
                 recentDates.forEach(date => {
-                    dailyPrices[date] = parseFloat(timeSeries[date]['4. close']);
+                    weeklyPrices[date] = parseFloat(timeSeries[date]['4. close']);
                 });
 
                 return {
-                    dailyPrices: dailyPrices
+                    weeklyPrices: weeklyPrices
                 };
             } catch (e) {
                 return { error: 'Failed to fetch data. Check your network connection.' };
