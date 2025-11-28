@@ -23,6 +23,9 @@ import Layout from '../layouts/MainLayout.astro';
     <!-- Portfolio Builder Section -->
     <div class="pt-4">
         <h3 class="text-lg font-semibold text-gray-800 mb-3">2. Build Your Portfolio</h3>
+        <datalist id="popular-stocks">
+          <!-- Populated by JS -->
+        </datalist>
         <form id="portfolio-form" class="space-y-4">
             <div id="stock-list" class="space-y-4">
                 <!-- Stock rows will be dynamically inserted here -->
@@ -35,20 +38,112 @@ import Layout from '../layouts/MainLayout.astro';
                   Calculate Performance
               </button>
             </div>
-             <p class="text-xs text-gray-500 mt-2">Note: Performance is calculated based on the price from 7 days ago versus the latest price.</p>
+             <p class="text-xs text-gray-500 mt-2">Note: Performance is calculated based on daily returns over the last 30 trading days.</p>
         </form>
     </div>
 
     <!-- Results Section -->
     <div id="results" class="mt-8"></div>
+
+    <!-- Chart Section -->
+    <div class="mt-8 bg-gray-50 p-4 rounded-lg border" style="display:none;" id="chart-container">
+        <h3 class="text-xl font-bold text-gray-800 mb-4">Efficient Frontier Visualization</h3>
+        <div class="relative h-96 w-full">
+            <canvas id="frontier-chart"></canvas>
+        </div>
+        <p class="text-sm text-gray-500 mt-2">Plot of Estimated Annual Return vs. Annualized Volatility for each calculated portfolio.</p>
+    </div>
   </div>
+
+  <!-- Load Chart.js from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
   <script>
+    import { POPULAR_STOCKS } from '../data/stocks.js';
+
     document.addEventListener('DOMContentLoaded', () => {
         const apiKeyInput = document.getElementById('api-key') as HTMLInputElement;
         const addStockBtn = document.getElementById('add-stock');
         const stockListDiv = document.getElementById('stock-list');
         const portfolioForm = document.getElementById('portfolio-form');
         const resultsDiv = document.getElementById('results');
+        const popularStocksDatalist = document.getElementById('popular-stocks');
+        const chartContainer = document.getElementById('chart-container');
+        const ctx = document.getElementById('frontier-chart') as HTMLCanvasElement;
+
+        // Chart initialization
+        let frontierChart = null;
+
+        function initChart() {
+            if (frontierChart) return;
+
+            // Check if Chart is loaded
+            if (typeof Chart === 'undefined') {
+                console.error('Chart.js not loaded');
+                return;
+            }
+
+            frontierChart = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: 'Portfolios',
+                        data: [], // {x: volatility, y: return, composition: []}
+                        backgroundColor: 'rgba(164, 16, 52, 0.6)', // HBS Crimson with opacity
+                        borderColor: 'rgba(164, 16, 52, 1)',
+                        pointRadius: 6,
+                        pointHoverRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Annualized Volatility (%)'
+                            },
+                            beginAtZero: true
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Estimated Annual Return (%)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const point = context.raw;
+                                    const returnVal = point.y.toFixed(2);
+                                    const volVal = point.x.toFixed(2);
+                                    return `Return: ${returnVal}%, Volatility: ${volVal}%`;
+                                },
+                                afterBody: function(context) {
+                                    const point = context[0].raw;
+                                    if (point.composition) {
+                                        return ['Composition:', ...point.composition.map(s => ` ${s.ticker}: ${s.weight}%`)];
+                                    }
+                                    return [];
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+
+        // Populate datalist
+        POPULAR_STOCKS.forEach(stock => {
+            const option = document.createElement('option');
+            option.value = stock.symbol;
+            option.textContent = `${stock.symbol} - ${stock.name}`;
+            popularStocksDatalist.appendChild(option);
+        });
 
         // Load API key from local storage
         apiKeyInput.value = localStorage.getItem('alphaVantageApiKey') || '';
@@ -67,25 +162,31 @@ import Layout from '../layouts/MainLayout.astro';
             stockRow.innerHTML = `
                 <div class="flex-grow">
                     <label for="ticker-${stockId}" class="sr-only">Ticker</label>
-                    <input type="text" id="ticker-${stockId}" name="ticker" placeholder="e.g., AAPL" class="w-full border-gray-300 rounded-md shadow-sm sm:text-sm" required>
+                    <input type="text" id="ticker-${stockId}" name="ticker" list="popular-stocks" placeholder="e.g., AAPL" class="w-full border-gray-300 rounded-md shadow-sm sm:text-sm" required>
                 </div>
                 <div class="flex-grow">
                     <label for="weight-${stockId}" class="sr-only">Weight</label>
-                    <input type="range" id="weight-${stockId}" name="weight" min="1" max="100" value="50" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                    <input type="range" id="weight-${stockId}" name="weight-slider" min="1" max="100" value="50" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
                 </div>
-                <div class="w-16 text-center">
-                    <span id="weight-value-${stockId}" class="text-sm font-medium text-gray-700">50%</span>
+                <div class="w-20 text-center">
+                    <label for="weight-input-${stockId}" class="sr-only">Weight Input</label>
+                    <input type="number" id="weight-input-${stockId}" name="weight" min="1" max="100" value="50" class="w-full text-center border-gray-300 rounded-md shadow-sm sm:text-sm p-1">
                 </div>
                 <button type="button" class="text-red-500 hover:text-red-700 font-bold remove-stock">&times;</button>
             `;
 
             stockListDiv.appendChild(stockRow);
 
-            // Add event listener for the new weight slider
-            const weightSlider = stockRow.querySelector('input[type="range"]');
-            const weightValue = stockRow.querySelector(`#weight-value-${stockId}`);
-            weightSlider.addEventListener('input', (e) => {
-                weightValue.textContent = `${(e.target as HTMLInputElement).value}%`;
+            // Sync slider and number input
+            const weightSlider = stockRow.querySelector(`input[name="weight-slider"]`) as HTMLInputElement;
+            const weightInput = stockRow.querySelector(`input[name="weight"]`) as HTMLInputElement;
+
+            weightSlider.addEventListener('input', () => {
+                weightInput.value = weightSlider.value;
+            });
+
+            weightInput.addEventListener('input', () => {
+                weightSlider.value = weightInput.value;
             });
 
             // Add event listener for the remove button
@@ -113,7 +214,7 @@ import Layout from '../layouts/MainLayout.astro';
                 const weightInput = row.querySelector('input[name="weight"]') as HTMLInputElement;
                 return {
                     ticker: tickerInput.value.toUpperCase(),
-                    weight: parseInt(weightInput.value, 10)
+                    weight: parseFloat(weightInput.value)
                 };
             });
 
@@ -122,103 +223,208 @@ import Layout from '../layouts/MainLayout.astro';
                 return;
             }
 
-            resultsDiv.innerHTML = '<p class="text-gray-600">Calculating portfolio performance...</p>';
+            if (stocks.some(s => isNaN(s.weight) || s.weight <= 0)) {
+                resultsDiv.innerHTML = '<p class="text-red-500">Please enter a valid weight > 0 for all stocks.</p>';
+                return;
+            }
+
+            resultsDiv.innerHTML = '<p class="text-gray-600">Calculating portfolio performance... (This may take a moment)</p>';
 
             try {
-                const sevenDaysAgo = new Date();
-                sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-                const promises = stocks.map(stock => fetchData(stock.ticker, apiKey, sevenDaysAgo));
+                // Fetch data for all stocks
+                // Using 30 days of data for volatility calculation
+                const promises = stocks.map(stock => fetchData(stock.ticker, apiKey));
                 const results = await Promise.all(promises);
 
-                let totalWeightedPerformance = 0;
-                let totalWeight = 0;
-                let resultsHTML = '<h3 class="text-2xl font-bold text-gray-800 mb-4">Portfolio Performance</h3>';
-                resultsHTML += '<div class="space-y-4">';
+                let totalWeight = stocks.reduce((sum, s) => sum + s.weight, 0);
+
+                // Process results
+                let validResults = [];
+                let hasError = false;
+                let errorMsg = '';
 
                 results.forEach((data, index) => {
                     if (data.error) {
-                         resultsHTML += `<div class="p-4 bg-red-50 border-l-4 border-red-400"><p class="font-semibold text-red-800">${stocks[index].ticker}: Error</p><p class="text-sm text-red-600">${data.error}</p></div>`;
+                        hasError = true;
+                        errorMsg = data.error;
                     } else {
-                        const stock = stocks[index];
-                        const performance = ((data.latestPrice - data.historicalPrice) / data.historicalPrice) * 100;
-                        totalWeightedPerformance += performance * stock.weight;
-                        totalWeight += stock.weight;
-
-                        resultsHTML += `
-                            <div class="p-4 bg-gray-50 rounded-lg border">
-                                <div class="flex justify-between items-center">
-                                    <p class="text-lg font-bold text-gray-900">${stock.ticker} <span class="text-sm font-normal text-gray-600">(${stock.weight}% weight)</span></p>
-                                    <p class="text-lg font-bold ${performance >= 0 ? 'text-green-500' : 'text-red-500'}">${performance.toFixed(2)}%</p>
-                                </div>
-                                <div class="text-sm text-gray-600 mt-2">
-                                    <p>7-Day Ago Price: $${data.historicalPrice.toFixed(2)} (on ${data.historicalDate})</p>
-                                    <p>Latest Price: $${data.latestPrice.toFixed(2)}</p>
-                                </div>
-                            </div>
-                        `;
+                        validResults.push({
+                            stock: stocks[index],
+                            data: data
+                        });
                     }
                 });
 
-                if (totalWeight > 0) {
-                     const weightedAveragePerformance = totalWeightedPerformance / totalWeight;
-                     resultsHTML += `
-                        <div class="p-4 bg-white border-t-4 ${weightedAveragePerformance >= 0 ? 'border-green-500' : 'border-red-500'} rounded-b shadow-md">
-                           <div class="flex justify-between items-center">
-                             <p class="text-xl font-bold text-gray-900">Total Portfolio Performance</p>
-                             <p class="text-2xl font-extrabold ${weightedAveragePerformance >= 0 ? 'text-green-600' : 'text-red-600'}">${weightedAveragePerformance.toFixed(2)}%</p>
-                           </div>
-                        </div>
-                     `;
+                if (hasError) {
+                    resultsDiv.innerHTML = `<div class="p-4 bg-red-50 border-l-4 border-red-400"><p class="font-semibold text-red-800">Error Fetching Data</p><p class="text-sm text-red-600">${errorMsg}</p></div>`;
+                    return;
                 }
 
+                // Calculate Portfolio Returns
+                // Find common date range (intersection of dates)
+                let commonDates = Object.keys(validResults[0].data.dailyPrices).sort();
+
+                // Intersect with other stocks
+                for (let i = 1; i < validResults.length; i++) {
+                    const stockDates = new Set(Object.keys(validResults[i].data.dailyPrices));
+                    commonDates = commonDates.filter(d => stockDates.has(d));
+                }
+
+                // Need at least 2 days to calculate return
+                if (commonDates.length < 2) {
+                     resultsDiv.innerHTML = '<p class="text-red-500">Not enough common trading data found to calculate portfolio metrics.</p>';
+                     return;
+                }
+
+                // Calculate daily returns for each stock and portfolio
+                const portfolioDailyReturns = [];
+                // Start from index 1 (second oldest date) to calculate return from previous day
+                for (let i = 1; i < commonDates.length; i++) {
+                    const today = commonDates[i];
+                    const yesterday = commonDates[i-1];
+                    let dailyPortfolioReturn = 0;
+
+                    validResults.forEach(item => {
+                        const priceToday = item.data.dailyPrices[today];
+                        const priceYesterday = item.data.dailyPrices[yesterday];
+                        const stockReturn = (priceToday - priceYesterday) / priceYesterday;
+                        const weight = item.stock.weight / totalWeight; // Normalize weight
+                        dailyPortfolioReturn += stockReturn * weight;
+                    });
+                    portfolioDailyReturns.push(dailyPortfolioReturn);
+                }
+
+                // Calculate Metrics
+                const meanDailyReturn = portfolioDailyReturns.reduce((sum, r) => sum + r, 0) / portfolioDailyReturns.length;
+
+                // Standard Deviation
+                const variance = portfolioDailyReturns.reduce((sum, r) => sum + Math.pow(r - meanDailyReturn, 2), 0) / (portfolioDailyReturns.length - 1);
+                const stdDev = Math.sqrt(variance);
+
+                // Annualize (assuming 252 trading days)
+                const annualizedVolatility = stdDev * Math.sqrt(252) * 100; // in percent
+                const annualizedReturn = meanDailyReturn * 252 * 100; // in percent
+
+                // Total Return over the period (Cumulative)
+                const startPriceDate = commonDates[0];
+                const endPriceDate = commonDates[commonDates.length - 1];
+                let portfolioCumulativeReturn = 0;
+
+                validResults.forEach(item => {
+                    const startPrice = item.data.dailyPrices[startPriceDate];
+                    const endPrice = item.data.dailyPrices[endPriceDate];
+                    const stockReturn = (endPrice - startPrice) / startPrice;
+                    portfolioCumulativeReturn += stockReturn * (item.stock.weight / totalWeight);
+                });
+                portfolioCumulativeReturn *= 100;
+
+                // Render Results
+                let resultsHTML = '<h3 class="text-2xl font-bold text-gray-800 mb-4">Portfolio Analysis</h3>';
+                resultsHTML += `<p class="text-sm text-gray-500 mb-4">Analysis based on data from ${startPriceDate} to ${endPriceDate} (${commonDates.length} trading days).</p>`;
+
+                resultsHTML += '<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">';
+                // Total Return Card
+                resultsHTML += `
+                    <div class="p-4 bg-white border rounded shadow-sm">
+                        <p class="text-gray-500 text-sm font-bold uppercase">Total Return</p>
+                        <p class="text-2xl font-bold ${portfolioCumulativeReturn >= 0 ? 'text-green-600' : 'text-red-600'}">${portfolioCumulativeReturn.toFixed(2)}%</p>
+                    </div>
+                `;
+                // Annualized Volatility Card
+                resultsHTML += `
+                    <div class="p-4 bg-white border rounded shadow-sm">
+                        <p class="text-gray-500 text-sm font-bold uppercase">Annualized Volatility</p>
+                        <p class="text-2xl font-bold text-gray-800">${annualizedVolatility.toFixed(2)}%</p>
+                    </div>
+                `;
+                // Annualized Return (Est) Card
+                 resultsHTML += `
+                    <div class="p-4 bg-white border rounded shadow-sm">
+                        <p class="text-gray-500 text-sm font-bold uppercase">Est. Annual Return</p>
+                        <p class="text-2xl font-bold ${annualizedReturn >= 0 ? 'text-green-600' : 'text-red-600'}">${annualizedReturn.toFixed(2)}%</p>
+                    </div>
+                `;
                 resultsHTML += '</div>';
+
+                resultsHTML += '<h4 class="text-lg font-bold text-gray-800 mb-3">Individual Stock Performance</h4>';
+                resultsHTML += '<div class="space-y-4">';
+
+                validResults.forEach(item => {
+                    const startPrice = item.data.dailyPrices[startPriceDate];
+                    const endPrice = item.data.dailyPrices[endPriceDate];
+                    const performance = ((endPrice - startPrice) / startPrice) * 100;
+
+                    resultsHTML += `
+                        <div class="p-4 bg-gray-50 rounded-lg border">
+                            <div class="flex justify-between items-center">
+                                <p class="text-lg font-bold text-gray-900">${item.stock.ticker} <span class="text-sm font-normal text-gray-600">(${item.stock.weight} alloc)</span></p>
+                                <p class="text-lg font-bold ${performance >= 0 ? 'text-green-500' : 'text-red-500'}">${performance.toFixed(2)}%</p>
+                            </div>
+                            <div class="text-sm text-gray-600 mt-2">
+                                <p>Start Price: $${startPrice.toFixed(2)}</p>
+                                <p>End Price: $${endPrice.toFixed(2)}</p>
+                            </div>
+                        </div>
+                    `;
+                });
+                resultsHTML += '</div>';
+
                 resultsDiv.innerHTML = resultsHTML;
+
+                // Update Chart
+                chartContainer.style.display = 'block';
+                // Small delay to ensure container is visible and layout updated before chart render if needed
+                setTimeout(() => {
+                    initChart();
+                    if (frontierChart) {
+                        frontierChart.data.datasets[0].data.push({
+                            x: annualizedVolatility,
+                            y: annualizedReturn,
+                            composition: stocks.map(s => ({
+                                ticker: s.ticker,
+                                weight: (s.weight / totalWeight * 100).toFixed(1)
+                            }))
+                        });
+                        frontierChart.update();
+                    }
+                }, 100);
+
 
             } catch (error) {
                 resultsDiv.innerHTML = `<p class="text-red-500">An unexpected error occurred: ${error.message}</p>`;
             }
         });
 
-        async function fetchData(ticker, apiKey, historicalDate) {
+        async function fetchData(ticker, apiKey) {
             try {
-                // Fetch historical and latest data in parallel
-                const [historicalResponse, latestResponse] = await Promise.all([
-                    fetch(`https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${ticker}&apikey=${apiKey}`),
-                    fetch(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${ticker}&apikey=${apiKey}`)
-                ]);
+                // Fetch daily series
+                const response = await fetch(`https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${ticker}&apikey=${apiKey}`);
+                const data = await response.json();
 
-                const historicalData = await historicalResponse.json();
-                const latestData = await latestResponse.json();
-
-                if (historicalData['Note'] || latestData['Note']) {
+                if (data['Note']) {
                     return { error: 'API rate limit reached. Please wait a minute and try again.' };
                 }
-                if (!historicalData['Time Series (Daily)'] || !latestData['Global Quote'] || Object.keys(latestData['Global Quote']).length === 0) {
-                    return { error: 'Invalid ticker symbol or no data available.' };
+                if (data['Error Message']) {
+                     return { error: `Invalid ticker: ${ticker}` };
+                }
+                if (!data['Time Series (Daily)']) {
+                    return { error: 'No data available.' };
                 }
 
-                const timeSeries = historicalData['Time Series (Daily)'];
-                let effectiveDate = new Date(historicalDate);
-                let priceData = null;
+                const timeSeries = data['Time Series (Daily)'];
+                // Get last 30 trading days (or less if not available)
+                const dates = Object.keys(timeSeries).sort();
+                dates.sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
 
-                for (let i = 0; i < 5; i++) { // Check up to 5 days back for a trading day
-                    const dateString = effectiveDate.toISOString().split('T')[0];
-                    if (timeSeries[dateString]) {
-                        priceData = timeSeries[dateString];
-                        break;
-                    }
-                    effectiveDate.setDate(effectiveDate.getDate() - 1);
-                }
+                const recentDates = dates.slice(-30);
 
-                if (!priceData) {
-                    return { error: 'Could not find trading data within the last week.' };
-                }
+                const dailyPrices = {};
+                recentDates.forEach(date => {
+                    dailyPrices[date] = parseFloat(timeSeries[date]['4. close']);
+                });
 
                 return {
-                    historicalPrice: parseFloat(priceData['4. close']),
-                    historicalDate: effectiveDate.toISOString().split('T')[0],
-                    latestPrice: parseFloat(latestData['Global Quote']['05. price']),
+                    dailyPrices: dailyPrices
                 };
             } catch (e) {
                 return { error: 'Failed to fetch data. Check your network connection.' };
