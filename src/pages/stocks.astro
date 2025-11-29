@@ -150,7 +150,7 @@ import Layout from '../layouts/MainLayout.astro';
                         y: {
                             title: {
                                 display: true,
-                                text: 'Estimated Annual Return (%)'
+                                text: 'Avg. Annual Return (5yr) (%)'
                             }
                         }
                     },
@@ -355,6 +355,8 @@ import Layout from '../layouts/MainLayout.astro';
 
                     const annualizedVolatility = stdDev * Math.sqrt(52) * 100; // percent (52 weeks)
                     const annualizedReturn = meanWeeklyReturn * 52 * 100; // percent
+                    // Sharpe Ratio uses Annualized Return and Annualized Volatility.
+                    // Risk Free Rate is already an annual percentage (e.g. 4.0%), so no adjustment is needed.
                     const sharpeRatio = (annualizedReturn - riskFreeRate) / annualizedVolatility;
 
                     return { annualizedReturn, annualizedVolatility, sharpeRatio };
@@ -379,13 +381,14 @@ import Layout from '../layouts/MainLayout.astro';
 
                 // Render Results
                 let resultsHTML = '<h3 class="text-2xl font-bold text-gray-800 mb-4">Portfolio Analysis</h3>';
-                resultsHTML += `<p class="text-sm text-gray-500 mb-4">Risk analysis based on 5 years of weekly data (${commonDates.length} weeks). Total Return shown is for the week ending ${endPriceDate}. Risk-Free Rate: ${riskFreeRate.toFixed(2)}%.</p>`;
+                resultsHTML += `<p class="text-sm text-gray-500 mb-4">Risk analysis based on 5 years of weekly data (${commonDates.length} weeks). <br><strong>Note:</strong> "Last Week's Return" is for the week ending ${endPriceDate}. "Avg. Ann. Return" is the historical average over the last 5 years.</p>`;
+                resultsHTML += `<p class="text-xs text-gray-400 mb-4">Risk-Free Rate used: ${riskFreeRate.toFixed(2)}% (Annual Treasury Yield).</p>`;
 
                 resultsHTML += '<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">';
                 // Total Return
                 resultsHTML += `
-                    <div class="p-4 bg-white border rounded shadow-sm">
-                        <p class="text-gray-500 text-sm font-bold uppercase">Total Return (1 Wk)</p>
+                    <div class="p-4 bg-white border rounded shadow-sm relative group">
+                        <p class="text-gray-500 text-sm font-bold uppercase border-b border-dotted inline-block cursor-help" title="The return of the portfolio for the most recent week of available data.">Last Week's Return</p>
                         <p class="text-2xl font-bold ${portfolioLastWeekReturn >= 0 ? 'text-green-600' : 'text-red-600'}">${portfolioLastWeekReturn.toFixed(2)}%</p>
                     </div>
                 `;
@@ -398,15 +401,15 @@ import Layout from '../layouts/MainLayout.astro';
                 `;
                 // Annual Return
                  resultsHTML += `
-                    <div class="p-4 bg-white border rounded shadow-sm">
-                        <p class="text-gray-500 text-sm font-bold uppercase">Est. Ann. Return</p>
+                    <div class="p-4 bg-white border rounded shadow-sm group">
+                        <p class="text-gray-500 text-sm font-bold uppercase border-b border-dotted inline-block cursor-help" title="The average annualized return based on the last 5 years of weekly data.">5-Year Avg. Ann. Return</p>
                         <p class="text-2xl font-bold ${userMetrics.annualizedReturn >= 0 ? 'text-green-600' : 'text-red-600'}">${userMetrics.annualizedReturn.toFixed(2)}%</p>
                     </div>
                 `;
                 // Sharpe Ratio
                 resultsHTML += `
                     <div class="p-4 bg-white border rounded shadow-sm">
-                        <p class="text-gray-500 text-sm font-bold uppercase">Sharpe Ratio</p>
+                        <p class="text-gray-500 text-sm font-bold uppercase border-b border-dotted inline-block cursor-help" title="Measure of risk-adjusted return using Annualized Return and Annualized Risk-Free Rate.">Sharpe Ratio</p>
                         <p class="text-2xl font-bold ${userMetrics.sharpeRatio >= 1 ? 'text-green-600' : (userMetrics.sharpeRatio >= 0 ? 'text-yellow-600' : 'text-red-600')}">${userMetrics.sharpeRatio.toFixed(2)}</p>
                     </div>
                 `;
