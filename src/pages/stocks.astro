@@ -9,8 +9,7 @@ import Layout from "../layouts/MainLayout.astro";
         </h2>
         <p class="text-gray-600 mb-6">
             Build a portfolio of stocks. Metrics are calculated using 5 years of
-            weekly data, while the total return is shown for the most recent
-            week.
+            weekly data.
         </p>
 
         <!-- API Key Section -->
@@ -584,7 +583,7 @@ import Layout from "../layouts/MainLayout.astro";
                     // Treat SPY as a single stock portfolio with weight 1.0
                     const spyMetrics = calculateMetrics([1.0], [spyResult]);
 
-                    // Calculate Return for the Last Week (Most recent data point)
+                    // Calculate Return for the Last Week (Most recent data point) - used only for context in individual list now
                     const endPriceDate = commonDates[commonDates.length - 1];
                     const prevPriceDate = commonDates[commonDates.length - 2];
                     
@@ -621,55 +620,32 @@ import Layout from "../layouts/MainLayout.astro";
                         }
                     }
 
-                    let portfolioLastWeekReturn = 0;
-
-                    validResults.forEach((item, idx) => {
-                        const endPrice = item.data.weeklyPrices[endPriceDate];
-                        const prevPrice = item.data.weeklyPrices[prevPriceDate];
-                        const stockReturn = (endPrice - prevPrice) / prevPrice;
-                        portfolioLastWeekReturn +=
-                            stockReturn * userWeights[idx];
-                    });
-                    portfolioLastWeekReturn *= 100;
-
-                    // SPY Last Week Return
-                    const spyEndPrice = spyResult.weeklyPrices[endPriceDate];
-                    const spyPrevPrice = spyResult.weeklyPrices[prevPriceDate];
-                    const spyLastWeekReturn =
-                        ((spyEndPrice - spyPrevPrice) / spyPrevPrice) * 100;
-
                     // Render Results
                     let resultsHTML =
                         '<h3 class="text-2xl font-bold text-gray-800 mb-4">Portfolio Analysis</h3>';
                     
                     resultsHTML += warningHTML;
                     
-                    resultsHTML += `<p class="text-sm text-gray-500 mb-4">Risk analysis based on 5 years of weekly data (${commonDates.length} weeks). Total Return shown is for the week ending ${endPriceDate}. Risk-Free Rate: ${riskFreeRate.toFixed(2)}% (Annual).</p>`;
+                    resultsHTML += `<p class="text-sm text-gray-500 mb-4">Risk analysis based on 5 years of weekly data (${commonDates.length} weeks). Risk-Free Rate: ${riskFreeRate.toFixed(2)}% (Annual).</p>`;
 
                     resultsHTML +=
-                        '<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">';
-                    // Total Return
-                    resultsHTML += `
-                    <div class="p-4 bg-white border rounded shadow-sm">
-                        <p class="text-gray-500 text-sm font-bold uppercase">Total Return (Week of ${endPriceDate})</p>
-                        <p class="text-2xl font-bold ${portfolioLastWeekReturn >= 0 ? "text-green-600" : "text-red-600"}">${portfolioLastWeekReturn.toFixed(2)}%</p>
-                        <p class="text-xs text-gray-500 mt-1">S&P 500: ${spyLastWeekReturn.toFixed(2)}%</p>
-                    </div>
-                `;
+                        '<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">';
 
-                    // Weekly Metrics Display
+                    // Avg Weekly Return (Replaces Total Return)
+                    resultsHTML += `
+                        <div class="p-4 bg-white border rounded shadow-sm">
+                            <p class="text-gray-500 text-sm font-bold uppercase">Avg Weekly Return (5 Years)</p>
+                            <p class="text-2xl font-bold ${userMetrics.weeklyReturn >= 0 ? "text-green-600" : "text-red-600"}">${userMetrics.weeklyReturn.toFixed(2)}%</p>
+                            <p class="text-xs text-gray-500 mt-1">S&P 500: ${spyMetrics.weeklyReturn.toFixed(2)}%</p>
+                        </div>
+                    `;
+
+                    // Weekly Volatility Display
                     resultsHTML += `
                         <div class="p-4 bg-white border rounded shadow-sm">
                             <p class="text-gray-500 text-sm font-bold uppercase">Weekly Volatility</p>
                             <p class="text-2xl font-bold text-gray-800">${userMetrics.weeklyVolatility.toFixed(2)}%</p>
                             <p class="text-xs text-gray-500 mt-1">S&P 500: ${spyMetrics.weeklyVolatility.toFixed(2)}%</p>
-                        </div>
-                    `;
-                    resultsHTML += `
-                        <div class="p-4 bg-white border rounded shadow-sm">
-                            <p class="text-gray-500 text-sm font-bold uppercase">Avg Weekly Return</p>
-                            <p class="text-2xl font-bold ${userMetrics.weeklyReturn >= 0 ? "text-green-600" : "text-red-600"}">${userMetrics.weeklyReturn.toFixed(2)}%</p>
-                            <p class="text-xs text-gray-500 mt-1">S&P 500: ${spyMetrics.weeklyReturn.toFixed(2)}%</p>
                         </div>
                     `;
 
@@ -703,18 +679,31 @@ import Layout from "../layouts/MainLayout.astro";
 
                     // Individual Stocks
                     resultsHTML +=
-                        '<h4 class="text-lg font-bold text-gray-800 mb-3">Individual Stock Performance (Last Week)</h4>';
+                        '<h4 class="text-lg font-bold text-gray-800 mb-3">Individual Stock Performance (Avg Weekly Return - 5 Years)</h4>';
                     resultsHTML += '<div class="space-y-4">';
                     validResults.forEach((item) => {
+                        // Calculate Avg Weekly Return for individual stock
+                        let sumReturn = 0;
+                        let count = 0;
+                        for (let i = 1; i < commonDates.length; i++) {
+                             const today = commonDates[i];
+                             const lastWeek = commonDates[i - 1];
+                             const priceToday = item.data.weeklyPrices[today];
+                             const priceLastWeek = item.data.weeklyPrices[lastWeek];
+                             sumReturn += (priceToday - priceLastWeek) / priceLastWeek;
+                             count++;
+                        }
+                        const avgReturn = (count > 0 ? (sumReturn / count) * 100 : 0);
+
+                        // Last week context
                         const prevPrice = item.data.weeklyPrices[prevPriceDate];
                         const endPrice = item.data.weeklyPrices[endPriceDate];
-                        const performance =
-                            ((endPrice - prevPrice) / prevPrice) * 100;
+
                         resultsHTML += `
                         <div class="p-4 bg-gray-50 rounded-lg border">
                             <div class="flex justify-between items-center">
                                 <p class="text-lg font-bold text-gray-900">${item.stock.ticker} <span class="text-sm font-normal text-gray-600">(${item.stock.weight} alloc)</span></p>
-                                <p class="text-lg font-bold ${performance >= 0 ? "text-green-500" : "text-red-500"}">${performance.toFixed(2)}%</p>
+                                <p class="text-lg font-bold ${avgReturn >= 0 ? "text-green-500" : "text-red-500"}">${avgReturn.toFixed(2)}%</p>
                             </div>
                             <div class="text-sm text-gray-600 mt-2">
                                 <p>Prev Week: $${prevPrice.toFixed(2)}</p>
