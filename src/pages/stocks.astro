@@ -123,6 +123,10 @@ import Layout from "../layouts/MainLayout.astro";
 
             // Chart initialization
             let frontierChart = null;
+            
+            // Simulation Cache
+            let lastSimulationTickers = "";
+            let lastSimulationData = null;
 
             function initChart() {
                 if (frontierChart) {
@@ -687,53 +691,73 @@ import Layout from "../layouts/MainLayout.astro";
                     resultsDiv.innerHTML = resultsHTML;
 
                     // --- Simulation Logic ---
-                    // Generate random portfolios
-                    const numSimulations = 500;
-                    const simulatedPoints = [];
-                    let bestSharpe = -Infinity;
-                    let bestPortfolio = null;
+                    
+                    // Create a unique key for the current set of stocks
+                    const currentTickers = validResults
+                        .map(r => r.stock.ticker)
+                        .sort()
+                        .join(",");
 
-                    for (let i = 0; i < numSimulations; i++) {
-                        // Generate random weights
-                        let randWeights = validResults.map(() => Math.random());
-                        const weightSum = randWeights.reduce(
-                            (a, b) => a + b,
-                            0,
-                        );
-                        randWeights = randWeights.map((w) => w / weightSum);
+                    let simulatedPoints, frontierPoints, bestPortfolio;
 
-                        const metrics = calculateMetrics(randWeights);
+                    // Check if we can reuse the last simulation
+                    if (lastSimulationTickers === currentTickers && lastSimulationData) {
+                        console.log("Using cached simulation data");
+                        ({ simulatedPoints, frontierPoints, bestPortfolio } = lastSimulationData);
+                    } else {
+                        console.log("Running new simulation");
+                        // Generate random portfolios
+                        const numSimulations = 2000;
+                        simulatedPoints = [];
+                        let bestSharpe = -Infinity;
+                        bestPortfolio = null;
 
-                        const point = {
-                            x: metrics.weeklyVolatility,
-                            y: metrics.weeklyReturn,
-                            sharpe: metrics.weeklySharpe,
-                            composition: validResults.map((item, idx) => ({
-                                ticker: item.stock.ticker,
-                                weight: (randWeights[idx] * 100).toFixed(1),
-                            })),
-                        };
-                        simulatedPoints.push(point);
+                        for (let i = 0; i < numSimulations; i++) {
+                            // Generate random weights
+                            let randWeights = validResults.map(() => Math.random());
+                            const weightSum = randWeights.reduce(
+                                (a, b) => a + b,
+                                0,
+                            );
+                            randWeights = randWeights.map((w) => w / weightSum);
 
-                        if (metrics.weeklySharpe > bestSharpe) {
-                            bestSharpe = metrics.weeklySharpe;
-                            bestPortfolio = point;
+                            const metrics = calculateMetrics(randWeights);
+
+                            const point = {
+                                x: metrics.weeklyVolatility,
+                                y: metrics.weeklyReturn,
+                                sharpe: metrics.weeklySharpe,
+                                composition: validResults.map((item, idx) => ({
+                                    ticker: item.stock.ticker,
+                                    weight: (randWeights[idx] * 100).toFixed(1),
+                                })),
+                            };
+                            simulatedPoints.push(point);
+
+                            if (metrics.weeklySharpe > bestSharpe) {
+                                bestSharpe = metrics.weeklySharpe;
+                                bestPortfolio = point;
+                            }
                         }
-                    }
 
-                    // Calculate Efficient Frontier Line (Upper Left Boundary)
-                    simulatedPoints.sort((a, b) => b.y - a.y);
+                        // Calculate Efficient Frontier Line (Upper Left Boundary)
+                        simulatedPoints.sort((a, b) => b.y - a.y);
 
-                    const frontierPoints = [];
-                    let minVolSoFar = Infinity;
+                        frontierPoints = [];
+                        let minVolSoFar = Infinity;
 
-                    for (const pt of simulatedPoints) {
-                        if (pt.x < minVolSoFar) {
-                            frontierPoints.push(pt);
-                            minVolSoFar = pt.x;
+                        for (const pt of simulatedPoints) {
+                            if (pt.x < minVolSoFar) {
+                                frontierPoints.push(pt);
+                                minVolSoFar = pt.x;
+                            }
                         }
+                        frontierPoints.sort((a, b) => a.x - b.x);
+                        
+                        // Update Cache
+                        lastSimulationTickers = currentTickers;
+                        lastSimulationData = { simulatedPoints, frontierPoints, bestPortfolio };
                     }
-                    frontierPoints.sort((a, b) => a.x - b.x);
 
                     // Update Chart
                     chartContainer.style.display = "block";
