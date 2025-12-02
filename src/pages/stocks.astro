@@ -1,429 +1,679 @@
 ---
-import Layout from '../layouts/MainLayout.astro';
+import Layout from "../layouts/MainLayout.astro";
 ---
 
 <Layout>
-  <div class="bg-white p-6 md:p-8 rounded-lg shadow-lg">
-    <h2 class="text-3xl font-bold text-gray-800 mb-2">Portfolio Simulator</h2>
-    <p class="text-gray-600 mb-6">Build a portfolio of stocks. Metrics are calculated using 5 years of weekly data, while the total return is shown for the most recent week.</p>
-
-    <!-- API Key Section -->
-    <div class="bg-gray-50 p-4 rounded-lg border mb-6">
-      <h3 class="text-lg font-semibold text-gray-800 mb-2">1. Enter Your API Key</h3>
-      <p class="text-sm text-gray-600 mb-3">
-        This tool uses the Alpha Vantage API to get stock data. Please provide your own free API key to continue.
-      </p>
-      <div class="flex items-center space-x-2">
-        <input type="text" id="api-key" placeholder="Your Alpha Vantage API Key" class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-hbs-crimson focus:border-hbs-crimson sm:text-sm">
-        <a href="https://www.alphavantage.co/support/#api-key" target="_blank" class="text-sm text-hbs-crimson hover:underline whitespace-nowrap">Get a Free Key</a>
-      </div>
-       <p class="text-xs text-gray-500 mt-2">Your key will be stored in your browser's local storage for convenience.</p>
-    </div>
-
-    <!-- Portfolio Builder Section -->
-    <div class="pt-4">
-        <h3 class="text-lg font-semibold text-gray-800 mb-3">2. Build Your Portfolio</h3>
-        <datalist id="popular-stocks">
-          <!-- Populated by JS -->
-        </datalist>
-        <form id="portfolio-form" class="space-y-4">
-            <div id="stock-list" class="space-y-4">
-                <!-- Stock rows will be dynamically inserted here -->
-            </div>
-            <div class="flex items-center space-x-4">
-              <button type="button" id="add-stock" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-md text-sm">
-                  + Add Stock
-              </button>
-              <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-hbs-crimson hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-hbs-crimson">
-                  Calculate Performance
-              </button>
-            </div>
-             <p class="text-xs text-gray-500 mt-2">Note: Volatility is calculated based on weekly returns over the last 5 years.</p>
-        </form>
-    </div>
-
-    <!-- Results Section -->
-    <div id="results" class="mt-8"></div>
-
-    <!-- Chart Section -->
-    <div class="mt-8 bg-gray-50 p-4 rounded-lg border" style="display:none;" id="chart-container">
-        <h3 class="text-xl font-bold text-gray-800 mb-4">Efficient Frontier Visualization</h3>
-        <div class="relative h-96 w-full">
-            <canvas id="frontier-chart"></canvas>
-        </div>
-        <p class="text-sm text-gray-500 mt-2">
-            <strong>Red:</strong> Your Portfolio |
-            <strong>Gold:</strong> Max Sharpe Ratio Portfolio |
-            <strong>Line:</strong> Efficient Frontier |
-            <strong>Grey:</strong> Simulated Portfolios
+    <div class="bg-white p-6 md:p-8 rounded-lg shadow-lg">
+        <h2 class="text-3xl font-bold text-gray-800 mb-2">
+            Portfolio Simulator
+        </h2>
+        <p class="text-gray-600 mb-6">
+            Build a portfolio of stocks. Metrics are calculated using 5 years of
+            weekly data, while the total return is shown for the most recent
+            week.
         </p>
+
+        <!-- API Key Section -->
+        <div class="bg-gray-50 p-4 rounded-lg border mb-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-2">
+                1. Enter Your API Key
+            </h3>
+            <p class="text-sm text-gray-600 mb-3">
+                This tool uses the Alpha Vantage API to get stock data. Please
+                provide your own free API key to continue.
+            </p>
+            <div class="flex items-center space-x-2">
+                <input
+                    type="text"
+                    id="api-key"
+                    placeholder="Your Alpha Vantage API Key"
+                    class="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-hbs-crimson focus:border-hbs-crimson sm:text-sm"
+                />
+                <a
+                    href="https://www.alphavantage.co/support/#api-key"
+                    target="_blank"
+                    class="text-sm text-hbs-crimson hover:underline whitespace-nowrap"
+                    >Get a Free Key</a
+                >
+            </div>
+            <p class="text-xs text-gray-500 mt-2">
+                Your key will be stored in your browser's local storage for
+                convenience.
+            </p>
+        </div>
+
+        <!-- Portfolio Builder Section -->
+        <div class="pt-4">
+            <h3 class="text-lg font-semibold text-gray-800 mb-3">
+                2. Build Your Portfolio
+            </h3>
+            <datalist id="popular-stocks">
+                <!-- Populated by JS -->
+            </datalist>
+            <form id="portfolio-form" class="space-y-4">
+                <div id="stock-list" class="space-y-4">
+                    <!-- Stock rows will be dynamically inserted here -->
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button
+                        type="button"
+                        id="add-stock"
+                        class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-4 rounded-md text-sm"
+                    >
+                        + Add Stock
+                    </button>
+                    <button
+                        type="submit"
+                        class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-hbs-crimson hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-hbs-crimson"
+                    >
+                        Calculate Performance
+                    </button>
+                </div>
+                <p class="text-xs text-gray-500 mt-2">
+                    Note: Volatility is calculated based on weekly returns over
+                    the last 5 years.
+                </p>
+            </form>
+        </div>
+
+        <!-- Results Section -->
+        <div id="results" class="mt-8"></div>
+
+        <!-- Chart Section -->
+        <div
+            class="mt-8 bg-gray-50 p-4 rounded-lg border"
+            style="display:none;"
+            id="chart-container"
+        >
+            <h3 class="text-xl font-bold text-gray-800 mb-4">
+                Efficient Frontier Visualization
+            </h3>
+            <div class="relative h-96 w-full">
+                <canvas id="frontier-chart"></canvas>
+            </div>
+            <p class="text-sm text-gray-500 mt-2">
+                <strong>Red:</strong> Your Portfolio |
+                <strong>Gold:</strong> Max Sharpe Ratio Portfolio |
+                <strong>Line:</strong> Efficient Frontier |
+                <strong>Grey:</strong> Simulated Portfolios
+            </p>
+        </div>
     </div>
-  </div>
 
-  <!-- Load Chart.js from CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Load Chart.js from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-  <script>
-    import { POPULAR_STOCKS } from '../data/stocks.js';
+    <script>
+        import { POPULAR_STOCKS } from "../data/stocks.js";
 
-    document.addEventListener('DOMContentLoaded', () => {
-        const apiKeyInput = document.getElementById('api-key') as HTMLInputElement;
-        const addStockBtn = document.getElementById('add-stock');
-        const stockListDiv = document.getElementById('stock-list');
-        const portfolioForm = document.getElementById('portfolio-form');
-        const resultsDiv = document.getElementById('results');
-        const popularStocksDatalist = document.getElementById('popular-stocks');
-        const chartContainer = document.getElementById('chart-container');
-        const ctx = document.getElementById('frontier-chart') as HTMLCanvasElement;
+        document.addEventListener("DOMContentLoaded", () => {
+            const apiKeyInput = document.getElementById(
+                "api-key",
+            ) as HTMLInputElement;
+            const addStockBtn = document.getElementById("add-stock");
+            const stockListDiv = document.getElementById("stock-list");
+            const portfolioForm = document.getElementById("portfolio-form");
+            const resultsDiv = document.getElementById("results");
+            const popularStocksDatalist =
+                document.getElementById("popular-stocks");
+            const chartContainer = document.getElementById("chart-container");
+            const ctx = document.getElementById(
+                "frontier-chart",
+            ) as HTMLCanvasElement;
 
-        // Chart initialization
-        let frontierChart = null;
+            // Chart initialization
+            let frontierChart = null;
 
-        function initChart() {
-            if (frontierChart) {
-                frontierChart.destroy();
-            }
-
-            // Check if Chart is loaded
-            if (typeof Chart === 'undefined') {
-                console.error('Chart.js not loaded');
-                return;
-            }
-
-            frontierChart = new Chart(ctx, {
-                type: 'scatter',
-                data: {
-                    datasets: [
-                        {
-                            label: 'Simulated Portfolios',
-                            data: [],
-                            backgroundColor: 'rgba(200, 200, 200, 0.5)',
-                            pointRadius: 2,
-                            pointHoverRadius: 2,
-                            order: 3
-                        },
-                        {
-                            label: 'Efficient Frontier',
-                            data: [],
-                            type: 'line',
-                            borderColor: 'rgba(50, 50, 50, 0.8)',
-                            borderWidth: 2,
-                            pointRadius: 0,
-                            fill: false,
-                            tension: 0.1,
-                            order: 2
-                        },
-                        {
-                            label: 'Max Sharpe Portfolio',
-                            data: [],
-                            backgroundColor: 'gold',
-                            borderColor: 'orange',
-                            borderWidth: 1,
-                            pointRadius: 8,
-                            pointHoverRadius: 10,
-                            pointStyle: 'star',
-                            order: 1
-                        },
-                        {
-                            label: 'Your Portfolio',
-                            data: [],
-                            backgroundColor: 'rgba(164, 16, 52, 1)', // HBS Crimson
-                            borderColor: 'white',
-                            borderWidth: 2,
-                            pointRadius: 8,
-                            pointHoverRadius: 10,
-                            order: 0
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        x: {
-                            title: {
-                                display: true,
-                                text: 'Annualized Volatility (%)'
-                            },
-                            beginAtZero: true
-                        },
-                        y: {
-                            title: {
-                                display: true,
-                                text: 'Estimated Annual Return (%)'
-                            }
-                        }
-                    },
-                    plugins: {
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const point = context.raw;
-                                    const returnVal = point.y.toFixed(2);
-                                    const volVal = point.x.toFixed(2);
-                                    let label = `Return: ${returnVal}%, Vol: ${volVal}%`;
-                                    if (point.sharpe) {
-                                        label += `, Sharpe: ${point.sharpe.toFixed(2)}`;
-                                    }
-                                    return label;
-                                },
-                                afterBody: function(context) {
-                                    const point = context[0].raw;
-                                    if (point.composition) {
-                                        return ['Composition:', ...point.composition.map(s => ` ${s.ticker}: ${s.weight}%`)];
-                                    }
-                                    return [];
-                                }
-                            }
-                        },
-                        legend: {
-                            labels: {
-                                usePointStyle: true
-                            }
-                        }
-                    }
+            function initChart() {
+                if (frontierChart) {
+                    frontierChart.destroy();
                 }
+
+                // Check if Chart is loaded
+                if (typeof Chart === "undefined") {
+                    console.error("Chart.js not loaded");
+                    return;
+                }
+
+                frontierChart = new Chart(ctx, {
+                    type: "scatter",
+                    data: {
+                        datasets: [
+                            {
+                                label: "Simulated Portfolios",
+                                data: [],
+                                backgroundColor: "rgba(200, 200, 200, 0.5)",
+                                pointRadius: 2,
+                                pointHoverRadius: 2,
+                                order: 3,
+                            },
+                            {
+                                label: "Efficient Frontier",
+                                data: [],
+                                type: "line",
+                                borderColor: "rgba(50, 50, 50, 0.8)",
+                                borderWidth: 2,
+                                pointRadius: 0,
+                                fill: false,
+                                tension: 0.1,
+                                order: 2,
+                            },
+                            {
+                                label: "Max Sharpe Portfolio",
+                                data: [],
+                                backgroundColor: "gold",
+                                borderColor: "orange",
+                                borderWidth: 1,
+                                pointRadius: 8,
+                                pointHoverRadius: 10,
+                                pointStyle: "star",
+                                order: 1,
+                            },
+                            {
+                                label: "Your Portfolio",
+                                data: [],
+                                backgroundColor: "rgba(164, 16, 52, 1)", // HBS Crimson
+                                borderColor: "white",
+                                borderWidth: 2,
+                                pointRadius: 8,
+                                pointHoverRadius: 10,
+                                order: 0,
+                            },
+                        ],
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: "Annualized Volatility (%)",
+                                },
+                                beginAtZero: true,
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: "Estimated Annual Return (%)",
+                                },
+                            },
+                        },
+                        plugins: {
+                            tooltip: {
+                                callbacks: {
+                                    label: function (context) {
+                                        const point = context.raw;
+                                        const returnVal = point.y.toFixed(2);
+                                        const volVal = point.x.toFixed(2);
+                                        let label = `Return: ${returnVal}%, Vol: ${volVal}%`;
+                                        if (point.sharpe) {
+                                            label += `, Sharpe: ${point.sharpe.toFixed(2)}`;
+                                        }
+                                        return label;
+                                    },
+                                    afterBody: function (context) {
+                                        const point = context[0].raw;
+                                        if (point.composition) {
+                                            return [
+                                                "Composition:",
+                                                ...point.composition.map(
+                                                    (s) =>
+                                                        ` ${s.ticker}: ${s.weight}%`,
+                                                ),
+                                            ];
+                                        }
+                                        return [];
+                                    },
+                                },
+                            },
+                            legend: {
+                                labels: {
+                                    usePointStyle: true,
+                                },
+                            },
+                        },
+                    },
+                });
+            }
+
+            // Populate datalist
+            POPULAR_STOCKS.forEach((stock) => {
+                const option = document.createElement("option");
+                option.value = stock.symbol;
+                option.textContent = `${stock.symbol} - ${stock.name}`;
+                popularStocksDatalist.appendChild(option);
             });
-        }
 
+            // Load API key from local storage
+            apiKeyInput.value =
+                localStorage.getItem("alphaVantageApiKey") || "";
 
-        // Populate datalist
-        POPULAR_STOCKS.forEach(stock => {
-            const option = document.createElement('option');
-            option.value = stock.symbol;
-            option.textContent = `${stock.symbol} - ${stock.name}`;
-            popularStocksDatalist.appendChild(option);
-        });
+            // Save API key to local storage on change
+            apiKeyInput.addEventListener("change", () => {
+                localStorage.setItem("alphaVantageApiKey", apiKeyInput.value);
+            });
 
-        // Load API key from local storage
-        apiKeyInput.value = localStorage.getItem('alphaVantageApiKey') || '';
+            const savePortfolio = () => {
+                const stocks = Array.from(stockListDiv.children).map((row) => {
+                    const tickerInput = row.querySelector(
+                        'input[name="ticker"]',
+                    ) as HTMLInputElement;
+                    const weightInput = row.querySelector(
+                        'input[name="weight"]',
+                    ) as HTMLInputElement;
+                    return {
+                        ticker: tickerInput.value.toUpperCase(),
+                        weight: weightInput.value,
+                    };
+                });
+                localStorage.setItem("userPortfolio", JSON.stringify(stocks));
+            };
 
-        // Save API key to local storage on change
-        apiKeyInput.addEventListener('change', () => {
-            localStorage.setItem('alphaVantageApiKey', apiKeyInput.value);
-        });
+            const addStockRow = (ticker = "", weight = 50) => {
+                const stockId = Date.now() + Math.random(); // Ensure unique ID
+                const stockRow = document.createElement("div");
+                stockRow.classList.add(
+                    "flex",
+                    "items-center",
+                    "space-x-3",
+                    "p-2",
+                    "bg-white",
+                    "rounded-md",
+                    "border",
+                );
+                stockRow.setAttribute("data-id", stockId.toString());
 
-        const addStockRow = () => {
-            const stockId = Date.now();
-            const stockRow = document.createElement('div');
-            stockRow.classList.add('flex', 'items-center', 'space-x-3', 'p-2', 'bg-white', 'rounded-md', 'border');
-            stockRow.setAttribute('data-id', stockId.toString());
-
-            stockRow.innerHTML = `
+                stockRow.innerHTML = `
                 <div class="flex-grow">
                     <label for="ticker-${stockId}" class="sr-only">Ticker</label>
-                    <input type="text" id="ticker-${stockId}" name="ticker" list="popular-stocks" placeholder="e.g., AAPL" class="w-full border-gray-300 rounded-md shadow-sm sm:text-sm" required>
+                    <input type="text" id="ticker-${stockId}" name="ticker" list="popular-stocks" placeholder="e.g., AAPL" value="${ticker}" class="w-full border-gray-300 rounded-md shadow-sm sm:text-sm" required>
                 </div>
                 <div class="flex-grow">
                     <label for="weight-${stockId}" class="sr-only">Weight</label>
-                    <input type="range" id="weight-${stockId}" name="weight-slider" min="1" max="100" value="50" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                    <input type="range" id="weight-${stockId}" name="weight-slider" min="1" max="100" value="${weight}" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
                 </div>
                 <div class="w-20 text-center">
                     <label for="weight-input-${stockId}" class="sr-only">Weight Input</label>
-                    <input type="number" id="weight-input-${stockId}" name="weight" min="1" max="100" value="50" class="w-full text-center border-gray-300 rounded-md shadow-sm sm:text-sm p-1">
+                    <input type="number" id="weight-input-${stockId}" name="weight" min="1" max="100" value="${weight}" class="w-full text-center border-gray-300 rounded-md shadow-sm sm:text-sm p-1">
                 </div>
                 <button type="button" class="text-red-500 hover:text-red-700 font-bold remove-stock">&times;</button>
             `;
 
-            stockListDiv.appendChild(stockRow);
+                stockListDiv.appendChild(stockRow);
 
-            // Sync slider and number input
-            const weightSlider = stockRow.querySelector(`input[name="weight-slider"]`) as HTMLInputElement;
-            const weightInput = stockRow.querySelector(`input[name="weight"]`) as HTMLInputElement;
+                // Sync slider and number input
+                const weightSlider = stockRow.querySelector(
+                    `input[name="weight-slider"]`,
+                ) as HTMLInputElement;
+                const weightInput = stockRow.querySelector(
+                    `input[name="weight"]`,
+                ) as HTMLInputElement;
 
-            weightSlider.addEventListener('input', () => {
-                weightInput.value = weightSlider.value;
-            });
-
-            weightInput.addEventListener('input', () => {
-                weightSlider.value = weightInput.value;
-            });
-
-            // Add event listener for the remove button
-            const removeButton = stockRow.querySelector('.remove-stock');
-            removeButton.addEventListener('click', () => {
-                stockRow.remove();
-            });
-        };
-
-        addStockBtn.addEventListener('click', addStockRow);
-        // Add one stock row by default
-        addStockRow();
-
-
-        portfolioForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const apiKey = apiKeyInput.value.trim();
-            if (!apiKey) {
-                resultsDiv.innerHTML = '<p class="text-red-500">Please enter your Alpha Vantage API key.</p>';
-                return;
-            }
-
-            const stocks = Array.from(stockListDiv.children).map(row => {
-                const tickerInput = row.querySelector('input[name="ticker"]') as HTMLInputElement;
-                const weightInput = row.querySelector('input[name="weight"]') as HTMLInputElement;
-                return {
-                    ticker: tickerInput.value.toUpperCase(),
-                    weight: parseFloat(weightInput.value)
-                };
-            });
-
-            if (stocks.some(s => !s.ticker)) {
-                 resultsDiv.innerHTML = '<p class="text-red-500">Please enter a ticker for all stocks.</p>';
-                return;
-            }
-
-            if (stocks.some(s => isNaN(s.weight) || s.weight <= 0)) {
-                resultsDiv.innerHTML = '<p class="text-red-500">Please enter a valid weight > 0 for all stocks.</p>';
-                return;
-            }
-
-            resultsDiv.innerHTML = '<p class="text-gray-600">Calculating portfolio performance... (This may take a moment)</p>';
-
-            try {
-                // Fetch data for all stocks
-                // Using 5 years of weekly data for volatility calculation
-                const stockPromises = stocks.map(stock => fetchData(stock.ticker, apiKey));
-                const [results, riskFreeRate] = await Promise.all([
-                    Promise.all(stockPromises),
-                    getRiskFreeRate(apiKey)
-                ]);
-
-                let totalWeight = stocks.reduce((sum, s) => sum + s.weight, 0);
-
-                // Process results
-                let validResults = [];
-                let hasError = false;
-                let errorMsg = '';
-
-                results.forEach((data, index) => {
-                    if (data.error) {
-                        hasError = true;
-                        errorMsg = data.error;
-                    } else {
-                        validResults.push({
-                            stock: stocks[index],
-                            data: data
-                        });
-                    }
+                weightSlider.addEventListener("input", () => {
+                    weightInput.value = weightSlider.value;
                 });
 
-                if (hasError) {
-                    resultsDiv.innerHTML = `<div class="p-4 bg-red-50 border-l-4 border-red-400"><p class="font-semibold text-red-800">Error Fetching Data</p><p class="text-sm text-red-600">${errorMsg}</p></div>`;
+                weightInput.addEventListener("input", () => {
+                    weightSlider.value = weightInput.value;
+                });
+
+                // Add event listener for the remove button
+                const removeButton = stockRow.querySelector(".remove-stock");
+                removeButton.addEventListener("click", () => {
+                    stockRow.remove();
+                });
+            };
+
+            addStockBtn.addEventListener("click", () => addStockRow());
+
+            // Load saved portfolio or add default
+            const savedPortfolio = localStorage.getItem("userPortfolio");
+            if (savedPortfolio) {
+                try {
+                    const stocks = JSON.parse(savedPortfolio);
+                    if (Array.isArray(stocks) && stocks.length > 0) {
+                        stocks.forEach((s) => addStockRow(s.ticker, s.weight));
+                    } else {
+                        addStockRow();
+                    }
+                } catch (e) {
+                    console.error("Error loading portfolio", e);
+                    addStockRow();
+                }
+            } else {
+                addStockRow();
+            }
+
+            portfolioForm.addEventListener("submit", async (e) => {
+                e.preventDefault();
+                savePortfolio(); // Save on submit
+                const apiKey = apiKeyInput.value.trim();
+                if (!apiKey) {
+                    resultsDiv.innerHTML =
+                        '<p class="text-red-500">Please enter your Alpha Vantage API key.</p>';
                     return;
                 }
 
-                // Calculate Portfolio Returns
-                // Find common date range (intersection of dates)
-                let commonDates = Object.keys(validResults[0].data.weeklyPrices).sort();
+                const stocks = Array.from(stockListDiv.children).map((row) => {
+                    const tickerInput = row.querySelector(
+                        'input[name="ticker"]',
+                    ) as HTMLInputElement;
+                    const weightInput = row.querySelector(
+                        'input[name="weight"]',
+                    ) as HTMLInputElement;
+                    return {
+                        ticker: tickerInput.value.toUpperCase(),
+                        weight: parseFloat(weightInput.value),
+                    };
+                });
 
-                // Intersect with other stocks
-                for (let i = 1; i < validResults.length; i++) {
-                    const stockDates = new Set(Object.keys(validResults[i].data.weeklyPrices));
-                    commonDates = commonDates.filter(d => stockDates.has(d));
+                if (stocks.some((s) => !s.ticker)) {
+                    resultsDiv.innerHTML =
+                        '<p class="text-red-500">Please enter a ticker for all stocks.</p>';
+                    return;
                 }
 
-                // Need at least 2 days to calculate return
-                if (commonDates.length < 2) {
-                     resultsDiv.innerHTML = '<p class="text-red-500">Not enough common trading data found to calculate portfolio metrics.</p>';
-                     return;
+                if (stocks.some((s) => isNaN(s.weight) || s.weight <= 0)) {
+                    resultsDiv.innerHTML =
+                        '<p class="text-red-500">Please enter a valid weight > 0 for all stocks.</p>';
+                    return;
                 }
+                resultsDiv.innerHTML =
+                    '<p class="text-gray-600">Calculating portfolio performance... (This may take a moment)</p>';
 
-                // Normalized weights for user portfolio
-                const userWeights = stocks.map(s => s.weight / totalWeight);
+                try {
+                    // Fetch data for all stocks AND SPY
+                    // Using 5 years of weekly data for volatility calculation
+                    const stockPromises = stocks.map((stock) =>
+                        fetchData(stock.ticker, apiKey),
+                    );
+                    const spyPromise = fetchData("SPY", apiKey);
 
-                // Helper to calculate metrics for a set of weights
-                const calculateMetrics = (currentWeights) => {
-                    const portfolioWeeklyReturns = [];
-                    for (let i = 1; i < commonDates.length; i++) {
-                        const today = commonDates[i];
-                        const lastWeek = commonDates[i-1];
-                        let weeklyPortfolioReturn = 0;
+                    const [results, spyResult, riskFreeRate] =
+                        await Promise.all([
+                            Promise.all(stockPromises),
+                            spyPromise,
+                            getRiskFreeRate(apiKey),
+                        ]);
 
-                        validResults.forEach((item, idx) => {
-                            const priceToday = item.data.weeklyPrices[today];
-                            const priceLastWeek = item.data.weeklyPrices[lastWeek];
-                            const stockReturn = (priceToday - priceLastWeek) / priceLastWeek;
-                            weeklyPortfolioReturn += stockReturn * currentWeights[idx];
-                        });
-                        portfolioWeeklyReturns.push(weeklyPortfolioReturn);
+                    let totalWeight = stocks.reduce(
+                        (sum, s) => sum + s.weight,
+                        0,
+                    );
+
+                    // Process results
+                    let validResults = [];
+                    let hasError = false;
+                    let errorMsg = "";
+
+                    results.forEach((data, index) => {
+                        if (data.error) {
+                            hasError = true;
+                            errorMsg = data.error;
+                        } else {
+                            validResults.push({
+                                stock: stocks[index],
+                                data: data,
+                            });
+                        }
+                    });
+
+                    if (hasError) {
+                        resultsDiv.innerHTML = `<div class="p-4 bg-red-50 border-l-4 border-red-400"><p class="font-semibold text-red-800">Error Fetching Data</p><p class="text-sm text-red-600">${errorMsg}</p></div>`;
+                        return;
                     }
 
-                    const meanWeeklyReturn = portfolioWeeklyReturns.reduce((sum, r) => sum + r, 0) / portfolioWeeklyReturns.length;
-                    const variance = portfolioWeeklyReturns.reduce((sum, r) => sum + Math.pow(r - meanWeeklyReturn, 2), 0) / (portfolioWeeklyReturns.length - 1);
-                    const stdDev = Math.sqrt(variance);
+                    // Check SPY result
+                    if (spyResult.error) {
+                        resultsDiv.innerHTML = `<div class="p-4 bg-red-50 border-l-4 border-red-400"><p class="font-semibold text-red-800">Error Fetching SPY Data</p><p class="text-sm text-red-600">${spyResult.error}</p></div>`;
+                        return;
+                    }
 
-                    const annualizedVolatility = stdDev * Math.sqrt(52) * 100; // percent (52 weeks)
-                    const annualizedReturn = meanWeeklyReturn * 52 * 100; // percent
-                    const sharpeRatio = (annualizedReturn - riskFreeRate) / annualizedVolatility;
+                    // Calculate Portfolio Returns
+                    // Find common date range (intersection of dates)
+                    let commonDates = Object.keys(
+                        validResults[0].data.weeklyPrices,
+                    ).sort();
 
-                    return { annualizedReturn, annualizedVolatility, sharpeRatio };
-                };
+                    // Intersect with other stocks
+                    for (let i = 1; i < validResults.length; i++) {
+                        const stockDates = new Set(
+                            Object.keys(validResults[i].data.weeklyPrices),
+                        );
+                        commonDates = commonDates.filter((d) =>
+                            stockDates.has(d),
+                        );
+                    }
 
-                // Metrics for User Portfolio
-                const userMetrics = calculateMetrics(userWeights);
+                    // Intersect with SPY
+                    const spyDates = new Set(
+                        Object.keys(spyResult.weeklyPrices),
+                    );
+                    commonDates = commonDates.filter((d) => spyDates.has(d));
 
-                // Calculate Return for the Last Week (Most recent data point)
-                const endPriceDate = commonDates[commonDates.length - 1];
-                const prevPriceDate = commonDates[commonDates.length - 2];
-                let portfolioLastWeekReturn = 0;
+                    // Need at least 2 days to calculate return
+                    if (commonDates.length < 2) {
+                        resultsDiv.innerHTML =
+                            '<p class="text-red-500">Not enough common trading data found to calculate portfolio metrics.</p>';
+                        return;
+                    }
 
-                validResults.forEach((item, idx) => {
-                    const endPrice = item.data.weeklyPrices[endPriceDate];
-                    const prevPrice = item.data.weeklyPrices[prevPriceDate];
-                    const stockReturn = (endPrice - prevPrice) / prevPrice;
-                    portfolioLastWeekReturn += stockReturn * userWeights[idx];
-                });
-                portfolioLastWeekReturn *= 100;
+                    // Normalized weights for user portfolio
+                    const userWeights = stocks.map(
+                        (s) => s.weight / totalWeight,
+                    );
 
+                    // Helper to calculate metrics for a set of weights
+                    // Modified to accept a custom list of price objects if needed (for SPY)
+                    const calculateMetrics = (
+                        currentWeights,
+                        priceDataList = validResults,
+                    ) => {
+                        const portfolioWeeklyReturns = [];
+                        let cumulativeValue = 1.0;
+                        const portfolioValues = [1.0]; // Start at 1.0
 
-                // Render Results
-                let resultsHTML = '<h3 class="text-2xl font-bold text-gray-800 mb-4">Portfolio Analysis</h3>';
-                resultsHTML += `<p class="text-sm text-gray-500 mb-4">Risk analysis based on 5 years of weekly data (${commonDates.length} weeks). Total Return shown is for the week ending ${endPriceDate}. Risk-Free Rate: ${riskFreeRate.toFixed(2)}%.</p>`;
+                        for (let i = 1; i < commonDates.length; i++) {
+                            const today = commonDates[i];
+                            const lastWeek = commonDates[i - 1];
+                            let weeklyPortfolioReturn = 0;
 
-                resultsHTML += '<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">';
-                // Total Return
-                resultsHTML += `
+                            priceDataList.forEach((item, idx) => {
+                                const priceToday = item.data
+                                    ? item.data.weeklyPrices[today]
+                                    : item.weeklyPrices[today];
+                                const priceLastWeek = item.data
+                                    ? item.data.weeklyPrices[lastWeek]
+                                    : item.weeklyPrices[lastWeek];
+                                const stockReturn =
+                                    (priceToday - priceLastWeek) /
+                                    priceLastWeek;
+                                weeklyPortfolioReturn +=
+                                    stockReturn * currentWeights[idx];
+                            });
+                            portfolioWeeklyReturns.push(weeklyPortfolioReturn);
+
+                            cumulativeValue *= 1 + weeklyPortfolioReturn;
+                            portfolioValues.push(cumulativeValue);
+                        }
+
+                        // Weekly Metrics
+                        const meanWeeklyReturn =
+                            portfolioWeeklyReturns.reduce(
+                                (sum, r) => sum + r,
+                                0,
+                            ) / portfolioWeeklyReturns.length;
+                        const variance =
+                            portfolioWeeklyReturns.reduce(
+                                (sum, r) =>
+                                    sum + Math.pow(r - meanWeeklyReturn, 2),
+                                0,
+                            ) /
+                            (portfolioWeeklyReturns.length - 1);
+                        const stdDev = Math.sqrt(variance);
+
+                        // Weekly Risk Free Rate (approximate)
+                        const weeklyRiskFreeRate =
+                            Math.pow(1 + riskFreeRate / 100, 1 / 52) - 1;
+
+                        const weeklyVolatility = stdDev * 100; // percent
+                        const weeklyReturnPct = meanWeeklyReturn * 100; // percent
+                        const weeklySharpeRatio =
+                            (meanWeeklyReturn - weeklyRiskFreeRate) / stdDev;
+
+                        // True Annual Metrics (CAGR & Volatility of Annual Returns)
+                        const annualReturns = [];
+                        const weeksPerYear = 52;
+
+                        for (
+                            let i = weeksPerYear;
+                            i < portfolioValues.length;
+                            i += weeksPerYear
+                        ) {
+                            const startVal = portfolioValues[i - weeksPerYear];
+                            const endVal = portfolioValues[i];
+                            const annRet = (endVal - startVal) / startVal;
+                            annualReturns.push(annRet);
+                        }
+
+                        let annualVolatility = 0;
+                        let cagr = 0;
+
+                        if (annualReturns.length > 0) {
+                            const meanAnnRet =
+                                annualReturns.reduce((a, b) => a + b, 0) /
+                                annualReturns.length;
+                            if (annualReturns.length > 1) {
+                                const annVariance =
+                                    annualReturns.reduce(
+                                        (sum, r) =>
+                                            sum + Math.pow(r - meanAnnRet, 2),
+                                        0,
+                                    ) /
+                                    (annualReturns.length - 1);
+                                annualVolatility = Math.sqrt(annVariance) * 100;
+                            } else {
+                                annualVolatility = 0;
+                            }
+                        }
+
+                        // CAGR
+                        const finalValue =
+                            portfolioValues[portfolioValues.length - 1];
+                        const totalYears = (portfolioValues.length - 1) / 52;
+                        cagr = (Math.pow(finalValue, 1 / totalYears) - 1) * 100;
+
+                        return {
+                            weeklyReturn: weeklyReturnPct,
+                            weeklyVolatility,
+                            weeklySharpe: weeklySharpeRatio,
+                            annualReturn: cagr,
+                            annualVolatility,
+                        };
+                    };
+
+                    // Metrics for User Portfolio
+                    const userMetrics = calculateMetrics(userWeights);
+
+                    // Metrics for SPY (S&P 500)
+                    // Treat SPY as a single stock portfolio with weight 1.0
+                    const spyMetrics = calculateMetrics([1.0], [spyResult]);
+
+                    // Calculate Return for the Last Week (Most recent data point)
+                    const endPriceDate = commonDates[commonDates.length - 1];
+                    const prevPriceDate = commonDates[commonDates.length - 2];
+                    let portfolioLastWeekReturn = 0;
+
+                    validResults.forEach((item, idx) => {
+                        const endPrice = item.data.weeklyPrices[endPriceDate];
+                        const prevPrice = item.data.weeklyPrices[prevPriceDate];
+                        const stockReturn = (endPrice - prevPrice) / prevPrice;
+                        portfolioLastWeekReturn +=
+                            stockReturn * userWeights[idx];
+                    });
+                    portfolioLastWeekReturn *= 100;
+
+                    // SPY Last Week Return
+                    const spyEndPrice = spyResult.weeklyPrices[endPriceDate];
+                    const spyPrevPrice = spyResult.weeklyPrices[prevPriceDate];
+                    const spyLastWeekReturn =
+                        ((spyEndPrice - spyPrevPrice) / spyPrevPrice) * 100;
+
+                    // Render Results
+                    let resultsHTML =
+                        '<h3 class="text-2xl font-bold text-gray-800 mb-4">Portfolio Analysis</h3>';
+                    resultsHTML += `<p class="text-sm text-gray-500 mb-4">Risk analysis based on 5 years of weekly data (${commonDates.length} weeks). Total Return shown is for the week ending ${endPriceDate}. Risk-Free Rate: ${riskFreeRate.toFixed(2)}% (Annual).</p>`;
+
+                    resultsHTML +=
+                        '<div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">';
+                    // Total Return
+                    resultsHTML += `
                     <div class="p-4 bg-white border rounded shadow-sm">
                         <p class="text-gray-500 text-sm font-bold uppercase">Total Return (1 Wk)</p>
-                        <p class="text-2xl font-bold ${portfolioLastWeekReturn >= 0 ? 'text-green-600' : 'text-red-600'}">${portfolioLastWeekReturn.toFixed(2)}%</p>
+                        <p class="text-2xl font-bold ${portfolioLastWeekReturn >= 0 ? "text-green-600" : "text-red-600"}">${portfolioLastWeekReturn.toFixed(2)}%</p>
+                        <p class="text-xs text-gray-500 mt-1">S&P 500: ${spyLastWeekReturn.toFixed(2)}%</p>
                     </div>
                 `;
-                // Volatility
-                resultsHTML += `
-                    <div class="p-4 bg-white border rounded shadow-sm">
-                        <p class="text-gray-500 text-sm font-bold uppercase">Ann. Volatility</p>
-                        <p class="text-2xl font-bold text-gray-800">${userMetrics.annualizedVolatility.toFixed(2)}%</p>
-                    </div>
-                `;
-                // Annual Return
-                 resultsHTML += `
-                    <div class="p-4 bg-white border rounded shadow-sm">
-                        <p class="text-gray-500 text-sm font-bold uppercase">Est. Ann. Return</p>
-                        <p class="text-2xl font-bold ${userMetrics.annualizedReturn >= 0 ? 'text-green-600' : 'text-red-600'}">${userMetrics.annualizedReturn.toFixed(2)}%</p>
-                    </div>
-                `;
-                // Sharpe Ratio
-                resultsHTML += `
-                    <div class="p-4 bg-white border rounded shadow-sm">
-                        <p class="text-gray-500 text-sm font-bold uppercase">Sharpe Ratio</p>
-                        <p class="text-2xl font-bold ${userMetrics.sharpeRatio >= 1 ? 'text-green-600' : (userMetrics.sharpeRatio >= 0 ? 'text-yellow-600' : 'text-red-600')}">${userMetrics.sharpeRatio.toFixed(2)}</p>
-                    </div>
-                `;
-                resultsHTML += '</div>';
 
-                // Individual Stocks
-                resultsHTML += '<h4 class="text-lg font-bold text-gray-800 mb-3">Individual Stock Performance (Last Week)</h4>';
-                resultsHTML += '<div class="space-y-4">';
-                validResults.forEach(item => {
-                    const prevPrice = item.data.weeklyPrices[prevPriceDate];
-                    const endPrice = item.data.weeklyPrices[endPriceDate];
-                    const performance = ((endPrice - prevPrice) / prevPrice) * 100;
+                    // Weekly Metrics Display
                     resultsHTML += `
+                        <div class="p-4 bg-white border rounded shadow-sm">
+                            <p class="text-gray-500 text-sm font-bold uppercase">Weekly Volatility</p>
+                            <p class="text-2xl font-bold text-gray-800">${userMetrics.weeklyVolatility.toFixed(2)}%</p>
+                            <p class="text-xs text-gray-500 mt-1">S&P 500: ${spyMetrics.weeklyVolatility.toFixed(2)}%</p>
+                        </div>
+                    `;
+                    resultsHTML += `
+                        <div class="p-4 bg-white border rounded shadow-sm">
+                            <p class="text-gray-500 text-sm font-bold uppercase">Avg Weekly Return</p>
+                            <p class="text-2xl font-bold ${userMetrics.weeklyReturn >= 0 ? "text-green-600" : "text-red-600"}">${userMetrics.weeklyReturn.toFixed(2)}%</p>
+                            <p class="text-xs text-gray-500 mt-1">S&P 500: ${spyMetrics.weeklyReturn.toFixed(2)}%</p>
+                        </div>
+                    `;
+
+                    // Sharpe Ratio
+                    resultsHTML += `
+                        <div class="p-4 bg-white border rounded shadow-sm">
+                            <p class="text-gray-500 text-sm font-bold uppercase">Weekly Sharpe</p>
+                            <p class="text-2xl font-bold ${userMetrics.weeklySharpe >= 0.1 ? "text-green-600" : userMetrics.weeklySharpe >= 0 ? "text-yellow-600" : "text-red-600"}">${userMetrics.weeklySharpe.toFixed(3)}</p>
+                            <p class="text-xs text-gray-500 mt-1">S&P 500: ${spyMetrics.weeklySharpe.toFixed(3)}</p>
+                        </div>
+                    `;
+
+                    // Annual Metrics Display (New Row)
+                    resultsHTML +=
+                        '</div><div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">';
+                    resultsHTML += `
+                        <div class="p-4 bg-gray-50 border rounded shadow-sm">
+                            <p class="text-gray-500 text-sm font-bold uppercase">Annual Volatility (StdDev of Annual Returns)</p>
+                            <p class="text-xl font-bold text-gray-800">${userMetrics.annualVolatility.toFixed(2)}%</p>
+                            <p class="text-xs text-gray-500 mt-1">S&P 500: ${spyMetrics.annualVolatility.toFixed(2)}%</p>
+                        </div>
+                    `;
+                    resultsHTML += `
+                        <div class="p-4 bg-gray-50 border rounded shadow-sm">
+                            <p class="text-gray-500 text-sm font-bold uppercase">Annual Return (CAGR)</p>
+                            <p class="text-xl font-bold ${userMetrics.annualReturn >= 0 ? "text-green-600" : "text-red-600"}">${userMetrics.annualReturn.toFixed(2)}%</p>
+                            <p class="text-xs text-gray-500 mt-1">S&P 500: ${spyMetrics.annualReturn.toFixed(2)}%</p>
+                        </div>
+                    `;
+                    resultsHTML += "</div>";
+
+                    // Individual Stocks
+                    resultsHTML +=
+                        '<h4 class="text-lg font-bold text-gray-800 mb-3">Individual Stock Performance (Last Week)</h4>';
+                    resultsHTML += '<div class="space-y-4">';
+                    validResults.forEach((item) => {
+                        const prevPrice = item.data.weeklyPrices[prevPriceDate];
+                        const endPrice = item.data.weeklyPrices[endPriceDate];
+                        const performance =
+                            ((endPrice - prevPrice) / prevPrice) * 100;
+                        resultsHTML += `
                         <div class="p-4 bg-gray-50 rounded-lg border">
                             <div class="flex justify-between items-center">
                                 <p class="text-lg font-bold text-gray-900">${item.stock.ticker} <span class="text-sm font-normal text-gray-600">(${item.stock.weight} alloc)</span></p>
-                                <p class="text-lg font-bold ${performance >= 0 ? 'text-green-500' : 'text-red-500'}">${performance.toFixed(2)}%</p>
+                                <p class="text-lg font-bold ${performance >= 0 ? "text-green-500" : "text-red-500"}">${performance.toFixed(2)}%</p>
                             </div>
                             <div class="text-sm text-gray-600 mt-2">
                                 <p>Prev Week: $${prevPrice.toFixed(2)}</p>
@@ -431,175 +681,219 @@ import Layout from '../layouts/MainLayout.astro';
                             </div>
                         </div>
                     `;
-                });
-                resultsHTML += '</div>';
+                    });
+                    resultsHTML += "</div>";
 
-                resultsDiv.innerHTML = resultsHTML;
+                    resultsDiv.innerHTML = resultsHTML;
 
-                // --- Simulation Logic ---
-                // Generate random portfolios
-                const numSimulations = 500;
-                const simulatedPoints = [];
-                let bestSharpe = -Infinity;
-                let bestPortfolio = null;
+                    // --- Simulation Logic ---
+                    // Generate random portfolios
+                    const numSimulations = 500;
+                    const simulatedPoints = [];
+                    let bestSharpe = -Infinity;
+                    let bestPortfolio = null;
 
-                for (let i = 0; i < numSimulations; i++) {
-                    // Generate random weights
-                    let randWeights = validResults.map(() => Math.random());
-                    const weightSum = randWeights.reduce((a, b) => a + b, 0);
-                    randWeights = randWeights.map(w => w / weightSum);
+                    for (let i = 0; i < numSimulations; i++) {
+                        // Generate random weights
+                        let randWeights = validResults.map(() => Math.random());
+                        const weightSum = randWeights.reduce(
+                            (a, b) => a + b,
+                            0,
+                        );
+                        randWeights = randWeights.map((w) => w / weightSum);
 
-                    const metrics = calculateMetrics(randWeights);
+                        const metrics = calculateMetrics(randWeights);
 
-                    const point = {
-                        x: metrics.annualizedVolatility,
-                        y: metrics.annualizedReturn,
-                        sharpe: metrics.sharpeRatio,
-                        composition: validResults.map((item, idx) => ({
-                            ticker: item.stock.ticker,
-                            weight: (randWeights[idx] * 100).toFixed(1)
-                        }))
+                        const point = {
+                            x: metrics.weeklyVolatility,
+                            y: metrics.weeklyReturn,
+                            sharpe: metrics.weeklySharpe,
+                            composition: validResults.map((item, idx) => ({
+                                ticker: item.stock.ticker,
+                                weight: (randWeights[idx] * 100).toFixed(1),
+                            })),
+                        };
+                        simulatedPoints.push(point);
+
+                        if (metrics.weeklySharpe > bestSharpe) {
+                            bestSharpe = metrics.weeklySharpe;
+                            bestPortfolio = point;
+                        }
+                    }
+
+                    // Calculate Efficient Frontier Line (Upper Left Boundary)
+                    simulatedPoints.sort((a, b) => b.y - a.y);
+
+                    const frontierPoints = [];
+                    let minVolSoFar = Infinity;
+
+                    for (const pt of simulatedPoints) {
+                        if (pt.x < minVolSoFar) {
+                            frontierPoints.push(pt);
+                            minVolSoFar = pt.x;
+                        }
+                    }
+                    frontierPoints.sort((a, b) => a.x - b.x);
+
+                    // Update Chart
+                    chartContainer.style.display = "block";
+                    setTimeout(() => {
+                        initChart();
+                        if (frontierChart) {
+                            // Update Chart Axes Titles
+                            frontierChart.options.scales.x.title.text =
+                                "Weekly Volatility (%)";
+                            frontierChart.options.scales.y.title.text =
+                                "Avg Weekly Return (%)";
+
+                            // Dataset 0: Simulated (Grey)
+                            frontierChart.data.datasets[0].data =
+                                simulatedPoints;
+
+                            // Dataset 1: Frontier Line
+                            frontierChart.data.datasets[1].data =
+                                frontierPoints;
+
+                            // Dataset 2: Max Sharpe (Gold)
+                            frontierChart.data.datasets[2].data = bestPortfolio
+                                ? [bestPortfolio]
+                                : [];
+
+                            // Dataset 3: User Portfolio (Red)
+                            frontierChart.data.datasets[3].data = [
+                                {
+                                    x: userMetrics.weeklyVolatility,
+                                    y: userMetrics.weeklyReturn,
+                                    sharpe: userMetrics.weeklySharpe,
+                                    composition: stocks.map((s) => ({
+                                        ticker: s.ticker,
+                                        weight: (
+                                            (s.weight / totalWeight) *
+                                            100
+                                        ).toFixed(1),
+                                    })),
+                                },
+                            ];
+
+                            // Dataset 4: S&P 500 (Blue) - Add if not exists or update
+                            if (frontierChart.data.datasets.length < 5) {
+                                frontierChart.data.datasets.push({
+                                    label: "S&P 500",
+                                    data: [],
+                                    backgroundColor: "blue",
+                                    borderColor: "white",
+                                    borderWidth: 2,
+                                    pointRadius: 8,
+                                    pointHoverRadius: 10,
+                                    pointStyle: "rectRot",
+                                    order: 0,
+                                });
+                            }
+
+                            frontierChart.data.datasets[4].data = [
+                                {
+                                    x: spyMetrics.weeklyVolatility,
+                                    y: spyMetrics.weeklyReturn,
+                                    sharpe: spyMetrics.weeklySharpe,
+                                    composition: [
+                                        { ticker: "SPY", weight: "100.0" },
+                                    ],
+                                },
+                            ];
+
+                            frontierChart.update();
+                        }
+                    }, 100);
+                } catch (error) {
+                    console.error(error);
+                    resultsDiv.innerHTML = `<p class="text-red-500">An unexpected error occurred: ${error.message}</p>`;
+                }
+            });
+
+            async function fetchData(ticker, apiKey) {
+                try {
+                    // Fetch weekly series
+                    const response = await fetch(
+                        `https://www.alphavantage.co/query?function=TIME_SERIES_WEEKLY&symbol=${ticker}&apikey=${apiKey}`,
+                    );
+                    const data = await response.json();
+
+                    if (data["Note"]) {
+                        return {
+                            error: "API rate limit reached. Please wait a minute and try again.",
+                        };
+                    }
+                    if (data["Error Message"]) {
+                        return { error: `Invalid ticker: ${ticker}` };
+                    }
+                    if (!data["Weekly Time Series"]) {
+                        return { error: "No data available." };
+                    }
+
+                    const timeSeries = data["Weekly Time Series"];
+                    // Get last 5 years of weekly data (approx 260 weeks)
+                    const dates = Object.keys(timeSeries).sort();
+                    dates.sort(
+                        (a, b) => new Date(a).getTime() - new Date(b).getTime(),
+                    );
+
+                    const recentDates = dates.slice(-260);
+
+                    const weeklyPrices = {};
+                    recentDates.forEach((date) => {
+                        weeklyPrices[date] = parseFloat(
+                            timeSeries[date]["4. close"],
+                        );
+                    });
+
+                    return {
+                        weeklyPrices: weeklyPrices,
                     };
-                    simulatedPoints.push(point);
-
-                    if (metrics.sharpeRatio > bestSharpe) {
-                        bestSharpe = metrics.sharpeRatio;
-                        bestPortfolio = point;
-                    }
+                } catch (e) {
+                    return {
+                        error: "Failed to fetch data. Check your network connection.",
+                    };
                 }
+            }
 
-                // Calculate Efficient Frontier Line (Upper Left Boundary)
-                // Sort by Return descending
-                simulatedPoints.sort((a, b) => b.y - a.y);
-
-                const frontierPoints = [];
-                let minVolSoFar = Infinity;
-
-                for (const pt of simulatedPoints) {
-                    if (pt.x < minVolSoFar) {
-                        frontierPoints.push(pt);
-                        minVolSoFar = pt.x;
+            async function getRiskFreeRate(apiKey) {
+                try {
+                    // Use cache to save API calls
+                    const cacheKey = "treasuryYield_3month";
+                    const cached = localStorage.getItem(cacheKey);
+                    if (cached) {
+                        const { value, timestamp } = JSON.parse(cached);
+                        // Cache for 24 hours
+                        if (Date.now() - timestamp < 24 * 60 * 60 * 1000) {
+                            return value;
+                        }
                     }
+
+                    const response = await fetch(
+                        `https://www.alphavantage.co/query?function=TREASURY_YIELD&interval=monthly&maturity=3month&apikey=${apiKey}`,
+                    );
+                    const data = await response.json();
+
+                    if (data.data && data.data.length > 0) {
+                        const rate = parseFloat(data.data[0].value);
+                        localStorage.setItem(
+                            cacheKey,
+                            JSON.stringify({
+                                value: rate,
+                                timestamp: Date.now(),
+                            }),
+                        );
+                        return rate;
+                    }
+                    return 4.0; // Default fallback
+                } catch (e) {
+                    console.warn(
+                        "Error fetching risk free rate, using default.",
+                        e,
+                    );
+                    return 4.0; // Default fallback
                 }
-                // Now frontierPoints is sorted by Return Descending.
-                // ChartJS line looks better if sorted by X (Volatility) or we can just draw it as is?
-                // Actually, efficient frontier is usually drawn as a curve.
-                // Let's sort by volatility for the line plot so it connects correctly left-to-right?
-                // The points are (Vol, Ret). The frontier goes from MinVol (lowest Return on frontier) up to MaxReturn.
-                // Our filtering logic produced points with increasing Return and decreasing Volatility (going backwards).
-                // So if we reverse it, we get increasing Volatility and increasing Return? No.
-                // As we go up in return, we must accept higher volatility (generally).
-                // Wait, my logic: Sort Desc Return. Keep if Vol < MinVol.
-                // High Return usually means High Vol.
-                // Top point: High Return, High Vol (maybe). MinVol is High.
-                // Next point: Lower Return. If Vol is lower than MinVol, keep it.
-                // So we get points where as Return Decreases, Volatility Decreases.
-                // So if we sort these by Volatility Ascending, we also get Return Ascending.
-                frontierPoints.sort((a, b) => a.x - b.x);
-
-
-                // Update Chart
-                chartContainer.style.display = 'block';
-                setTimeout(() => {
-                    initChart();
-                    if (frontierChart) {
-                        // Dataset 0: Simulated (Grey)
-                        frontierChart.data.datasets[0].data = simulatedPoints;
-
-                        // Dataset 1: Frontier Line
-                        frontierChart.data.datasets[1].data = frontierPoints;
-
-                        // Dataset 2: Max Sharpe (Gold)
-                        frontierChart.data.datasets[2].data = bestPortfolio ? [bestPortfolio] : [];
-
-                        // Dataset 3: User Portfolio (Red)
-                        frontierChart.data.datasets[3].data = [{
-                            x: userMetrics.annualizedVolatility,
-                            y: userMetrics.annualizedReturn,
-                            sharpe: userMetrics.sharpeRatio,
-                            composition: stocks.map(s => ({
-                                ticker: s.ticker,
-                                weight: (s.weight / totalWeight * 100).toFixed(1)
-                            }))
-                        }];
-
-                        frontierChart.update();
-                    }
-                }, 100);
-
-
-            } catch (error) {
-                console.error(error);
-                resultsDiv.innerHTML = `<p class="text-red-500">An unexpected error occurred: ${error.message}</p>`;
             }
         });
-
-        async function fetchData(ticker, apiKey) {
-            try {
-                // Fetch weekly series
-                const response = await fetch(`https://www.alphavantage.co/query?function=TIME_SERIES_WEEKLY&symbol=${ticker}&apikey=${apiKey}`);
-                const data = await response.json();
-
-                if (data['Note']) {
-                    return { error: 'API rate limit reached. Please wait a minute and try again.' };
-                }
-                if (data['Error Message']) {
-                     return { error: `Invalid ticker: ${ticker}` };
-                }
-                if (!data['Weekly Time Series']) {
-                    return { error: 'No data available.' };
-                }
-
-                const timeSeries = data['Weekly Time Series'];
-                // Get last 5 years of weekly data (approx 260 weeks)
-                const dates = Object.keys(timeSeries).sort();
-                dates.sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
-
-                const recentDates = dates.slice(-260);
-
-                const weeklyPrices = {};
-                recentDates.forEach(date => {
-                    weeklyPrices[date] = parseFloat(timeSeries[date]['4. close']);
-                });
-
-                return {
-                    weeklyPrices: weeklyPrices
-                };
-            } catch (e) {
-                return { error: 'Failed to fetch data. Check your network connection.' };
-            }
-        }
-
-        async function getRiskFreeRate(apiKey) {
-            try {
-                // Use cache to save API calls
-                const cacheKey = 'treasuryYield_3month';
-                const cached = localStorage.getItem(cacheKey);
-                if (cached) {
-                    const { value, timestamp } = JSON.parse(cached);
-                    // Cache for 24 hours
-                    if (Date.now() - timestamp < 24 * 60 * 60 * 1000) {
-                        return value;
-                    }
-                }
-
-                const response = await fetch(`https://www.alphavantage.co/query?function=TREASURY_YIELD&interval=monthly&maturity=3month&apikey=${apiKey}`);
-                const data = await response.json();
-
-                if (data.data && data.data.length > 0) {
-                    const rate = parseFloat(data.data[0].value);
-                    localStorage.setItem(cacheKey, JSON.stringify({
-                        value: rate,
-                        timestamp: Date.now()
-                    }));
-                    return rate;
-                }
-                return 4.0; // Default fallback
-            } catch (e) {
-                console.warn("Error fetching risk free rate, using default.", e);
-                return 4.0; // Default fallback
-            }
-        }
-    });
-  </script>
+    </script>
 </Layout>
