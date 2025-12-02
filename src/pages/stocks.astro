@@ -122,7 +122,7 @@ import Layout from "../layouts/MainLayout.astro";
 
             // Chart initialization
             let frontierChart = null;
-            
+
             // Simulation Cache
             let lastSimulationTickers = "";
             let lastSimulationData = null;
@@ -526,39 +526,47 @@ import Layout from "../layouts/MainLayout.astro";
                             (meanWeeklyReturn - weeklyRiskFreeRate) / stdDev;
 
                         // True Annual Metrics (CAGR & Volatility of Annual Returns)
+                        // Use rolling window to increase sample size
                         const annualReturns = [];
                         const weeksPerYear = 52;
 
-                        for (
-                            let i = weeksPerYear;
-                            i < portfolioValues.length;
-                            i += weeksPerYear
-                        ) {
-                            const startVal = portfolioValues[i - weeksPerYear];
-                            const endVal = portfolioValues[i];
-                            const annRet = (endVal - startVal) / startVal;
-                            annualReturns.push(annRet);
+                        if (portfolioValues.length > weeksPerYear) {
+                            // Calculate rolling annual returns
+                            for (
+                                let i = weeksPerYear;
+                                i < portfolioValues.length;
+                                i++
+                            ) {
+                                const startVal =
+                                    portfolioValues[i - weeksPerYear];
+                                const endVal = portfolioValues[i];
+                                const annRet = (endVal - startVal) / startVal;
+                                annualReturns.push(annRet);
+                            }
                         }
 
                         let annualVolatility = 0;
                         let cagr = 0;
 
-                        if (annualReturns.length > 0) {
+                        if (annualReturns.length > 1) {
+                            // Calculate StdDev of rolling annual returns
                             const meanAnnRet =
                                 annualReturns.reduce((a, b) => a + b, 0) /
                                 annualReturns.length;
-                            if (annualReturns.length > 1) {
-                                const annVariance =
-                                    annualReturns.reduce(
-                                        (sum, r) =>
-                                            sum + Math.pow(r - meanAnnRet, 2),
-                                        0,
-                                    ) /
-                                    (annualReturns.length - 1);
-                                annualVolatility = Math.sqrt(annVariance) * 100;
-                            } else {
-                                annualVolatility = 0;
-                            }
+
+                            const annVariance =
+                                annualReturns.reduce(
+                                    (sum, r) =>
+                                        sum + Math.pow(r - meanAnnRet, 2),
+                                    0,
+                                ) /
+                                (annualReturns.length - 1);
+                            annualVolatility = Math.sqrt(annVariance) * 100;
+                        } else {
+                            // Fallback: Annualize the weekly volatility
+                            // Annualized Volatility = Weekly Volatility * Sqrt(52)
+                            // stdDev is the weekly standard deviation (decimal)
+                            annualVolatility = stdDev * Math.sqrt(52) * 100;
                         }
 
                         // CAGR
@@ -586,17 +594,25 @@ import Layout from "../layouts/MainLayout.astro";
                     // Calculate Return for the Last Week (Most recent data point) - used only for context in individual list now
                     const endPriceDate = commonDates[commonDates.length - 1];
                     const prevPriceDate = commonDates[commonDates.length - 2];
-                    
+
                     // Check for lagging data
-                    const spyLatestDate = Object.keys(spyResult.weeklyPrices).sort().pop();
+                    const spyLatestDate = Object.keys(spyResult.weeklyPrices)
+                        .sort()
+                        .pop();
                     let warningHTML = "";
-                    
+
                     if (endPriceDate < spyLatestDate) {
-                        const laggingStocks = validResults.filter(item => {
-                            const stockLatest = Object.keys(item.data.weeklyPrices).sort().pop();
-                            return stockLatest < spyLatestDate;
-                        }).map(item => item.stock.ticker);
-                        
+                        const laggingStocks = validResults
+                            .filter((item) => {
+                                const stockLatest = Object.keys(
+                                    item.data.weeklyPrices,
+                                )
+                                    .sort()
+                                    .pop();
+                                return stockLatest < spyLatestDate;
+                            })
+                            .map((item) => item.stock.ticker);
+
                         if (laggingStocks.length > 0) {
                             warningHTML = `
                                 <div class="p-4 bg-yellow-50 border-l-4 border-yellow-400 mb-6">
@@ -623,9 +639,9 @@ import Layout from "../layouts/MainLayout.astro";
                     // Render Results
                     let resultsHTML =
                         '<h3 class="text-2xl font-bold text-gray-800 mb-4">Portfolio Analysis</h3>';
-                    
+
                     resultsHTML += warningHTML;
-                    
+
                     resultsHTML += `<p class="text-sm text-gray-500 mb-4">Risk analysis based on 5 years of weekly data (${commonDates.length} weeks). Risk-Free Rate: ${riskFreeRate.toFixed(2)}% (Annual).</p>`;
 
                     resultsHTML +=
@@ -686,14 +702,17 @@ import Layout from "../layouts/MainLayout.astro";
                         let sumReturn = 0;
                         let count = 0;
                         for (let i = 1; i < commonDates.length; i++) {
-                             const today = commonDates[i];
-                             const lastWeek = commonDates[i - 1];
-                             const priceToday = item.data.weeklyPrices[today];
-                             const priceLastWeek = item.data.weeklyPrices[lastWeek];
-                             sumReturn += (priceToday - priceLastWeek) / priceLastWeek;
-                             count++;
+                            const today = commonDates[i];
+                            const lastWeek = commonDates[i - 1];
+                            const priceToday = item.data.weeklyPrices[today];
+                            const priceLastWeek =
+                                item.data.weeklyPrices[lastWeek];
+                            sumReturn +=
+                                (priceToday - priceLastWeek) / priceLastWeek;
+                            count++;
                         }
-                        const avgReturn = (count > 0 ? (sumReturn / count) * 100 : 0);
+                        const avgReturn =
+                            count > 0 ? (sumReturn / count) * 100 : 0;
 
                         // Last week context
                         const prevPrice = item.data.weeklyPrices[prevPriceDate];
@@ -717,19 +736,23 @@ import Layout from "../layouts/MainLayout.astro";
                     resultsDiv.innerHTML = resultsHTML;
 
                     // --- Simulation Logic ---
-                    
+
                     // Create a unique key for the current set of stocks
                     const currentTickers = validResults
-                        .map(r => r.stock.ticker)
+                        .map((r) => r.stock.ticker)
                         .sort()
                         .join(",");
 
                     let simulatedPoints, frontierPoints, bestPortfolio;
 
                     // Check if we can reuse the last simulation
-                    if (lastSimulationTickers === currentTickers && lastSimulationData) {
+                    if (
+                        lastSimulationTickers === currentTickers &&
+                        lastSimulationData
+                    ) {
                         console.log("Using cached simulation data");
-                        ({ simulatedPoints, frontierPoints, bestPortfolio } = lastSimulationData);
+                        ({ simulatedPoints, frontierPoints, bestPortfolio } =
+                            lastSimulationData);
                     } else {
                         console.log("Running new simulation");
                         // Generate random portfolios
@@ -740,7 +763,9 @@ import Layout from "../layouts/MainLayout.astro";
 
                         for (let i = 0; i < numSimulations; i++) {
                             // Generate random weights
-                            let randWeights = validResults.map(() => Math.random());
+                            let randWeights = validResults.map(() =>
+                                Math.random(),
+                            );
                             const weightSum = randWeights.reduce(
                                 (a, b) => a + b,
                                 0,
@@ -779,10 +804,14 @@ import Layout from "../layouts/MainLayout.astro";
                             }
                         }
                         frontierPoints.sort((a, b) => a.x - b.x);
-                        
+
                         // Update Cache
                         lastSimulationTickers = currentTickers;
-                        lastSimulationData = { simulatedPoints, frontierPoints, bestPortfolio };
+                        lastSimulationData = {
+                            simulatedPoints,
+                            frontierPoints,
+                            bestPortfolio,
+                        };
                     }
 
                     // Update Chart
