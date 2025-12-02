@@ -587,6 +587,40 @@ import Layout from "../layouts/MainLayout.astro";
                     // Calculate Return for the Last Week (Most recent data point)
                     const endPriceDate = commonDates[commonDates.length - 1];
                     const prevPriceDate = commonDates[commonDates.length - 2];
+                    
+                    // Check for lagging data
+                    const spyLatestDate = Object.keys(spyResult.weeklyPrices).sort().pop();
+                    let warningHTML = "";
+                    
+                    if (endPriceDate < spyLatestDate) {
+                        const laggingStocks = validResults.filter(item => {
+                            const stockLatest = Object.keys(item.data.weeklyPrices).sort().pop();
+                            return stockLatest < spyLatestDate;
+                        }).map(item => item.stock.ticker);
+                        
+                        if (laggingStocks.length > 0) {
+                            warningHTML = `
+                                <div class="p-4 bg-yellow-50 border-l-4 border-yellow-400 mb-6">
+                                    <div class="flex">
+                                        <div class="flex-shrink-0">
+                                            <svg class="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                            </svg>
+                                        </div>
+                                        <div class="ml-3">
+                                            <p class="text-sm text-yellow-700">
+                                                <strong>Data Lag Warning:</strong> The following stocks have not reported data for the week of ${spyLatestDate}: <strong>${laggingStocks.join(", ")}</strong>.
+                                            </p>
+                                            <p class="text-sm text-yellow-700 mt-1">
+                                                Displaying results for the common week ending <strong>${endPriceDate}</strong>. Market returns may differ from the current week.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }
+                    }
+
                     let portfolioLastWeekReturn = 0;
 
                     validResults.forEach((item, idx) => {
@@ -607,6 +641,9 @@ import Layout from "../layouts/MainLayout.astro";
                     // Render Results
                     let resultsHTML =
                         '<h3 class="text-2xl font-bold text-gray-800 mb-4">Portfolio Analysis</h3>';
+                    
+                    resultsHTML += warningHTML;
+                    
                     resultsHTML += `<p class="text-sm text-gray-500 mb-4">Risk analysis based on 5 years of weekly data (${commonDates.length} weeks). Total Return shown is for the week ending ${endPriceDate}. Risk-Free Rate: ${riskFreeRate.toFixed(2)}% (Annual).</p>`;
 
                     resultsHTML +=
@@ -614,7 +651,7 @@ import Layout from "../layouts/MainLayout.astro";
                     // Total Return
                     resultsHTML += `
                     <div class="p-4 bg-white border rounded shadow-sm">
-                        <p class="text-gray-500 text-sm font-bold uppercase">Total Return (1 Wk)</p>
+                        <p class="text-gray-500 text-sm font-bold uppercase">Total Return (Week of ${endPriceDate})</p>
                         <p class="text-2xl font-bold ${portfolioLastWeekReturn >= 0 ? "text-green-600" : "text-red-600"}">${portfolioLastWeekReturn.toFixed(2)}%</p>
                         <p class="text-xs text-gray-500 mt-1">S&P 500: ${spyLastWeekReturn.toFixed(2)}%</p>
                     </div>
