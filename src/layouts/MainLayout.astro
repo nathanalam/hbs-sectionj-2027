@@ -45,7 +45,7 @@ import "../styles/global.css";
             <nav class="bg-white shadow-md sticky top-0 z-10">
                 <div class="container mx-auto px-6">
                     <div
-                        class="flex space-x-6 md:space-x-8 -mb-px overflow-x-auto whitespace-nowrap"
+                        class="flex space-x-6 md:space-x-8 -mb-px overflow-x-auto md:overflow-visible whitespace-nowrap"
                     >
                         <a
                             href="/"
@@ -69,17 +69,47 @@ import "../styles/global.css";
                         >
                             Directory
                         </a>
-                        <a
-                            href="/alignment"
-                            class={`py-4 px-1 border-b-4 text-sm md:text-base font-medium ${
-                                Astro.url.pathname === "/alignment" ||
-                                Astro.url.pathname === "/alignment/"
-                                    ? "text-hbs-crimson border-hbs-crimson"
-                                    : "text-gray-600 border-transparent hover:text-gray-800 hover:border-gray-300"
-                            }`}
-                        >
-                            Alignment
-                        </a>
+
+                        <!-- Games Dropdown -->
+                        <div class="relative group">
+                            <button
+                                class={`py-4 px-1 border-b-4 text-sm md:text-base font-medium flex items-center ${
+                                    Astro.url.pathname.startsWith("/games")
+                                        ? "text-hbs-crimson border-hbs-crimson"
+                                        : "text-gray-600 border-transparent hover:text-gray-800 hover:border-gray-300"
+                                }`}
+                            >
+                                Games
+                                <svg
+                                    class="w-4 h-4 ml-1"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M19 9l-7 7-7-7"></path>
+                                </svg>
+                            </button>
+                            <div
+                                class="absolute left-0 top-full w-48 bg-white rounded-md shadow-lg py-1 hidden group-hover:block z-50 border border-gray-100"
+                            >
+                                <a
+                                    href="/games/alignment"
+                                    class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-hbs-crimson"
+                                >
+                                    Alignment
+                                </a>
+                                <a
+                                    href="/games/stocks"
+                                    class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-hbs-crimson"
+                                >
+                                    Stocks
+                                </a>
+                            </div>
+                        </div>
                         <a
                             href="/events"
                             class={`py-4 px-1 border-b-4 text-sm md:text-base font-medium ${
@@ -123,17 +153,6 @@ import "../styles/global.css";
                             }`}
                         >
                             Feedback
-                        </a>
-                        <a
-                            href="/stocks"
-                            class={`py-4 px-1 border-b-4 text-sm md:text-base font-medium ${
-                                Astro.url.pathname === "/stocks" ||
-                                Astro.url.pathname === "/stocks/"
-                                    ? "text-hbs-crimson border-hbs-crimson"
-                                    : "text-gray-600 border-transparent hover:text-gray-800 hover:border-gray-300"
-                            }`}
-                        >
-                            Stocks
                         </a>
                     </div>
                 </div>
