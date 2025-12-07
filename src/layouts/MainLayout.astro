@@ -70,6 +70,17 @@ import "../styles/global.css";
                             Directory
                         </a>
                         <a
+                            href="/alignment"
+                            class={`py-4 px-1 border-b-4 text-sm md:text-base font-medium ${
+                                Astro.url.pathname === "/alignment" ||
+                                Astro.url.pathname === "/alignment/"
+                                    ? "text-hbs-crimson border-hbs-crimson"
+                                    : "text-gray-600 border-transparent hover:text-gray-800 hover:border-gray-300"
+                            }`}
+                        >
+                            Alignment
+                        </a>
+                        <a
                             href="/events"
                             class={`py-4 px-1 border-b-4 text-sm md:text-base font-medium ${
                                 Astro.url.pathname === "/events" ||
