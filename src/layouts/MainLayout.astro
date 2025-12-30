@@ -71,8 +71,9 @@ import "../styles/global.css";
                         </a>
 
                         <!-- Games Dropdown -->
-                        <div class="relative group">
+                        <div class="relative">
                             <button
+                                id="games-dropdown-btn"
                                 class={`py-4 px-1 border-b-4 text-sm md:text-base font-medium flex items-center ${
                                     Astro.url.pathname.startsWith("/games")
                                         ? "text-hbs-crimson border-hbs-crimson"
@@ -93,8 +94,11 @@ import "../styles/global.css";
                                         d="M19 9l-7 7-7-7"></path>
                                 </svg>
                             </button>
+                            <!-- Dropdown Menu -->
+                            <!-- Uses 'fixed' positioning controlled by JS to avoid clipping in overflow containers on mobile -->
                             <div
-                                class="absolute left-0 top-full w-48 bg-white rounded-md shadow-lg py-1 hidden group-hover:block z-50 border border-gray-100"
+                                id="games-dropdown-menu"
+                                class="hidden fixed w-48 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-100"
                             >
                                 <a
                                     href="/games/alignment"
@@ -110,6 +114,55 @@ import "../styles/global.css";
                                 </a>
                             </div>
                         </div>
+
+                        <script>
+                            document.addEventListener('DOMContentLoaded', () => {
+                                const btn = document.getElementById('games-dropdown-btn');
+                                const menu = document.getElementById('games-dropdown-menu');
+
+                                if (btn && menu) {
+                                    // Toggle menu on click
+                                    btn.addEventListener('click', (e) => {
+                                        e.stopPropagation();
+                                        const isHidden = menu.classList.contains('hidden');
+
+                                        if (isHidden) {
+                                            // Show menu
+                                            menu.classList.remove('hidden');
+
+                                            // Calculate position
+                                            const rect = btn.getBoundingClientRect();
+                                            menu.style.top = `${rect.bottom}px`;
+                                            menu.style.left = `${rect.left}px`;
+                                        } else {
+                                            // Hide menu
+                                            menu.classList.add('hidden');
+                                        }
+                                    });
+
+                                    // Close on click outside
+                                    document.addEventListener('click', (e) => {
+                                        if (!menu.contains(e.target as Node) && !btn.contains(e.target as Node)) {
+                                            menu.classList.add('hidden');
+                                        }
+                                    });
+
+                                    // Close on scroll (simplest way to handle fixed positioning issues)
+                                    window.addEventListener('scroll', () => {
+                                        if (!menu.classList.contains('hidden')) {
+                                            menu.classList.add('hidden');
+                                        }
+                                    }, { passive: true });
+
+                                    // Close on resize
+                                    window.addEventListener('resize', () => {
+                                         if (!menu.classList.contains('hidden')) {
+                                            menu.classList.add('hidden');
+                                        }
+                                    });
+                                }
+                            });
+                        </script>
                         <a
                             href="/events"
                             class={`py-4 px-1 border-b-4 text-sm md:text-base font-medium ${

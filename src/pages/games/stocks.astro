@@ -388,17 +388,26 @@ import Layout from "../../layouts/MainLayout.astro";
                 try {
                     // Fetch data for all stocks AND SPY
                     // Using 5 years of weekly data for volatility calculation
-                    const stockPromises = stocks.map((stock) =>
-                        fetchData(stock.ticker, apiKey),
-                    );
-                    const spyPromise = fetchData("SPY", apiKey);
 
-                    const [results, spyResult, riskFreeRate] =
-                        await Promise.all([
-                            Promise.all(stockPromises),
-                            spyPromise,
-                            getRiskFreeRate(apiKey),
-                        ]);
+                    // Sequential fetching to respect rate limits (1 req/sec for free tier)
+                    const results = [];
+                    for (let i = 0; i < stocks.length; i++) {
+                        const stock = stocks[i];
+                        resultsDiv.innerHTML = `<p class="text-gray-600">Fetching data for ${stock.ticker} (${i+1}/${stocks.length})...</p>`;
+
+                        const data = await fetchData(stock.ticker, apiKey);
+                        results.push(data);
+
+                        // Always wait after a fetch to ensure spacing
+                        await new Promise(r => setTimeout(r, 1200));
+                    }
+
+                    resultsDiv.innerHTML = `<p class="text-gray-600">Fetching benchmark data (SPY)...</p>`;
+                    const spyResult = await fetchData("SPY", apiKey);
+
+                    await new Promise(r => setTimeout(r, 1200));
+
+                    const riskFreeRate = await getRiskFreeRate(apiKey);
 
                     let totalWeight = stocks.reduce(
                         (sum, s) => sum + s.weight,
