@@ -1,5 +1,12 @@
 ---
 import "../styles/global.css";
+
+const base = import.meta.env.BASE_URL;
+const normalize = (path: string) => path.replace(/\/+$/, "");
+const isActive = (path: string) =>
+    normalize(Astro.url.pathname) === normalize(base + path);
+const isParentActive = (path: string) =>
+    normalize(Astro.url.pathname).startsWith(normalize(base + path));
 ---
 
 <html lang="en">
@@ -15,7 +22,7 @@ import "../styles/global.css";
             href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
             rel="stylesheet"
         />
-        <link href="/favicon.ico" rel="icon" type="image/x-icon" />
+        <link href={base + "favicon.ico"} rel="icon" type="image/x-icon" />
     </head>
     <body class="bg-gray-100">
         <div class="min-h-screen">
@@ -33,7 +40,7 @@ import "../styles/global.css";
                     </h1>
                     <div class="hidden md:block">
                         <img
-                            src="/assets/hbs_w.png"
+                            src={base + "assets/hbs_w.png"}
                             alt="HBS logo"
                             class="w-12 h-12"
                         />
@@ -48,10 +55,9 @@ import "../styles/global.css";
                         class="flex space-x-6 md:space-x-8 -mb-px overflow-x-auto md:overflow-visible whitespace-nowrap"
                     >
                         <a
-                            href="/"
+                            href={base}
                             class={`py-4 px-1 border-b-4 text-sm md:text-base font-medium ${
-                                Astro.url.pathname === "/home" ||
-                                Astro.url.pathname === "/"
+                                isActive("") || isActive("home")
                                     ? "text-hbs-crimson border-hbs-crimson"
                                     : "text-gray-600 border-transparent hover:text-gray-800 hover:border-gray-300"
                             }`}
@@ -59,10 +65,9 @@ import "../styles/global.css";
                             Home
                         </a>
                         <a
-                            href="/directory"
+                            href={base + "directory"}
                             class={`py-4 px-1 border-b-4 text-sm md:text-base font-medium ${
-                                Astro.url.pathname === "/directory" ||
-                                Astro.url.pathname === "/directory/"
+                                isActive("directory")
                                     ? "text-hbs-crimson border-hbs-crimson"
                                     : "text-gray-600 border-transparent hover:text-gray-800 hover:border-gray-300"
                             }`}
@@ -75,7 +80,7 @@ import "../styles/global.css";
                             <button
                                 id="games-dropdown-btn"
                                 class={`py-4 px-1 border-b-4 text-sm md:text-base font-medium flex items-center ${
-                                    Astro.url.pathname.startsWith("/games")
+                                    isParentActive("games")
                                         ? "text-hbs-crimson border-hbs-crimson"
                                         : "text-gray-600 border-transparent hover:text-gray-800 hover:border-gray-300"
                                 }`}
@@ -101,13 +106,13 @@ import "../styles/global.css";
                                 class="hidden fixed w-48 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-100"
                             >
                                 <a
-                                    href="/games/alignment"
+                                    href={base + "games/alignment"}
                                     class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-hbs-crimson"
                                 >
                                     Alignment
                                 </a>
                                 <a
-                                    href="/games/stocks"
+                                    href={base + "games/stocks"}
                                     class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-hbs-crimson"
                                 >
                                     Stocks
@@ -116,58 +121,100 @@ import "../styles/global.css";
                         </div>
 
                         <script>
-                            document.addEventListener('DOMContentLoaded', () => {
-                                const btn = document.getElementById('games-dropdown-btn');
-                                const menu = document.getElementById('games-dropdown-menu');
+                            document.addEventListener(
+                                "DOMContentLoaded",
+                                () => {
+                                    const btn =
+                                        document.getElementById(
+                                            "games-dropdown-btn",
+                                        );
+                                    const menu = document.getElementById(
+                                        "games-dropdown-menu",
+                                    );
 
-                                if (btn && menu) {
-                                    // Toggle menu on click
-                                    btn.addEventListener('click', (e) => {
-                                        e.stopPropagation();
-                                        const isHidden = menu.classList.contains('hidden');
+                                    if (btn && menu) {
+                                        // Toggle menu on click
+                                        btn.addEventListener("click", (e) => {
+                                            e.stopPropagation();
+                                            const isHidden =
+                                                menu.classList.contains(
+                                                    "hidden",
+                                                );
 
-                                        if (isHidden) {
-                                            // Show menu
-                                            menu.classList.remove('hidden');
+                                            if (isHidden) {
+                                                // Show menu
+                                                menu.classList.remove("hidden");
 
-                                            // Calculate position
-                                            const rect = btn.getBoundingClientRect();
-                                            menu.style.top = `${rect.bottom}px`;
-                                            menu.style.left = `${rect.left}px`;
-                                        } else {
-                                            // Hide menu
-                                            menu.classList.add('hidden');
-                                        }
-                                    });
+                                                // Calculate position
+                                                const rect =
+                                                    btn.getBoundingClientRect();
+                                                menu.style.top = `${rect.bottom}px`;
+                                                menu.style.left = `${rect.left}px`;
+                                            } else {
+                                                // Hide menu
+                                                menu.classList.add("hidden");
+                                            }
+                                        });
 
-                                    // Close on click outside
-                                    document.addEventListener('click', (e) => {
-                                        if (!menu.contains(e.target as Node) && !btn.contains(e.target as Node)) {
-                                            menu.classList.add('hidden');
-                                        }
-                                    });
+                                        // Close on click outside
+                                        document.addEventListener(
+                                            "click",
+                                            (e) => {
+                                                if (
+                                                    !menu.contains(
+                                                        e.target as Node,
+                                                    ) &&
+                                                    !btn.contains(
+                                                        e.target as Node,
+                                                    )
+                                                ) {
+                                                    menu.classList.add(
+                                                        "hidden",
+                                                    );
+                                                }
+                                            },
+                                        );
 
-                                    // Close on scroll (simplest way to handle fixed positioning issues)
-                                    window.addEventListener('scroll', () => {
-                                        if (!menu.classList.contains('hidden')) {
-                                            menu.classList.add('hidden');
-                                        }
-                                    }, { passive: true });
+                                        // Close on scroll (simplest way to handle fixed positioning issues)
+                                        window.addEventListener(
+                                            "scroll",
+                                            () => {
+                                                if (
+                                                    !menu.classList.contains(
+                                                        "hidden",
+                                                    )
+                                                ) {
+                                                    menu.classList.add(
+                                                        "hidden",
+                                                    );
+                                                }
+                                            },
+                                            { passive: true },
+                                        );
 
-                                    // Close on resize
-                                    window.addEventListener('resize', () => {
-                                         if (!menu.classList.contains('hidden')) {
-                                            menu.classList.add('hidden');
-                                        }
-                                    });
-                                }
-                            });
+                                        // Close on resize
+                                        window.addEventListener(
+                                            "resize",
+                                            () => {
+                                                if (
+                                                    !menu.classList.contains(
+                                                        "hidden",
+                                                    )
+                                                ) {
+                                                    menu.classList.add(
+                                                        "hidden",
+                                                    );
+                                                }
+                                            },
+                                        );
+                                    }
+                                },
+                            );
                         </script>
                         <a
-                            href="/events"
+                            href={base + "events"}
                             class={`py-4 px-1 border-b-4 text-sm md:text-base font-medium ${
-                                Astro.url.pathname === "/events" ||
-                                Astro.url.pathname === "/events/"
+                                isActive("events")
                                     ? "text-hbs-crimson border-hbs-crimson"
                                     : "text-gray-600 border-transparent hover:text-gray-800 hover:border-gray-300"
                             }`}
@@ -175,10 +222,9 @@ import "../styles/global.css";
                             Events
                         </a>
                         <a
-                            href="/cases"
+                            href={base + "cases"}
                             class={`py-4 px-1 border-b-4 text-sm md:text-base font-medium ${
-                                Astro.url.pathname === "/cases" ||
-                                Astro.url.pathname === "/cases/"
+                                isActive("cases")
                                     ? "text-hbs-crimson border-hbs-crimson"
                                     : "text-gray-600 border-transparent hover:text-gray-800 hover:border-gray-300"
                             }`}
@@ -186,10 +232,9 @@ import "../styles/global.css";
                             Cases
                         </a>
                         <a
-                            href="/resources"
+                            href={base + "resources"}
                             class={`py-4 px-1 border-b-4 text-sm md:text-base font-medium ${
-                                Astro.url.pathname === "/resources" ||
-                                Astro.url.pathname === "/resources/"
+                                isActive("resources")
                                     ? "text-hbs-crimson border-hbs-crimson"
                                     : "text-gray-600 border-transparent hover:text-gray-800 hover:border-gray-300"
                             }`}
@@ -197,10 +242,9 @@ import "../styles/global.css";
                             Resources
                         </a>
                         <a
-                            href="/feedback"
+                            href={base + "feedback"}
                             class={`py-4 px-1 border-b-4 text-sm md:text-base font-medium ${
-                                Astro.url.pathname === "/feedback" ||
-                                Astro.url.pathname === "/feedback/"
+                                isActive("feedback")
                                     ? "text-hbs-crimson border-hbs-crimson"
                                     : "text-gray-600 border-transparent hover:text-gray-800 hover:border-gray-300"
                             }`}
