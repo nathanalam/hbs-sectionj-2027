@@ -6,5 +6,5 @@ import tailwind from "@astrojs/tailwind";
 export default defineConfig({
   integrations: [tailwind()],
   site: process.env.BASE_PATH ? "https://nathanalam.github.io" : undefined,
-  base: process.env.BASE_PATH || "/",
+  base: (process.env.BASE_PATH || "").replace(/\/$/, "") + "/",
 });
