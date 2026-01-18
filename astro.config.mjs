@@ -5,6 +5,6 @@ import tailwind from "@astrojs/tailwind";
 // https://astro.build/config
 export default defineConfig({
   integrations: [tailwind()],
-  site: process.env.BASE_PATH ? "https://nathanalam.github.io" : undefined,
-  base: (process.env.BASE_PATH || "").replace(/\/$/, "") + "/",
+  site: "https://hbs-sectionj-2027.org",
+  base: "/",
 });
