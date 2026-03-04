@@ -3,10 +3,15 @@ export default async (request, context) => {
   const authHeader = request.headers.get("Authorization");
 
   if (authHeader && authHeader.startsWith("Basic ")) {
-    const credentials = atob(authHeader.slice(7));
-    const password = credentials.split(":").slice(1).join(":");
-    if (password === SITE_PASSWORD) {
-      return context.next();
+    try {
+      const decoded = atob(authHeader.slice(7).trim());
+      const colonIndex = decoded.indexOf(":");
+      const password = colonIndex >= 0 ? decoded.slice(colonIndex + 1) : decoded;
+      if (SITE_PASSWORD && password === SITE_PASSWORD) {
+        return context.next();
+      }
+    } catch {
+      // malformed base64, fall through to 401
     }
   }
 
