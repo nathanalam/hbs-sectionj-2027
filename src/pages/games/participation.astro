@@ -1,0 +1,170 @@
+---
+import Layout from "../../layouts/MainLayout.astro";
+
+const base = import.meta.env.BASE_URL;
+---
+
+<Layout>
+    <div class="bg-white p-6 md:p-8 rounded-lg shadow-lg">
+        <h2 class="text-3xl font-bold text-gray-800 mb-4">
+            Participation Tracker
+        </h2>
+
+        <div class="mb-6 bg-gray-50 p-4 rounded border border-gray-200">
+            <p class="mb-2">
+                Create a custom table to track participation or any other data.
+                Your data is saved automatically to your browser's local storage.
+            </p>
+        </div>
+
+        <div class="flex flex-col sm:flex-row gap-4 mb-6 items-end">
+            <div>
+                <label for="rows-input" class="block text-sm font-medium text-gray-700 mb-1">Rows</label>
+                <input
+                    type="number"
+                    id="rows-input"
+                    min="1"
+                    max="100"
+                    value="5"
+                    class="w-24 p-2 border border-gray-300 rounded focus:ring-hbs-crimson focus:border-hbs-crimson"
+                />
+            </div>
+            <div>
+                <label for="cols-input" class="block text-sm font-medium text-gray-700 mb-1">Columns</label>
+                <input
+                    type="number"
+                    id="cols-input"
+                    min="1"
+                    max="20"
+                    value="4"
+                    class="w-24 p-2 border border-gray-300 rounded focus:ring-hbs-crimson focus:border-hbs-crimson"
+                />
+            </div>
+            <button
+                id="update-grid-btn"
+                class="bg-hbs-crimson hover:bg-red-700 text-white font-semibold py-2 px-4 rounded transition h-10"
+            >
+                Update Grid
+            </button>
+            <div class="flex-grow"></div>
+            <button
+                id="clear-data-btn"
+                class="text-gray-600 hover:text-gray-800 font-medium py-2 px-4 transition"
+            >
+                Clear Data
+            </button>
+        </div>
+
+        <div class="overflow-x-auto">
+            <div id="grid-container" class="inline-block min-w-full">
+                <!-- Grid will be injected here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const rowsInput = document.getElementById("rows-input");
+            const colsInput = document.getElementById("cols-input");
+            const updateBtn = document.getElementById("update-grid-btn");
+            const clearBtn = document.getElementById("clear-data-btn");
+            const gridContainer = document.getElementById("grid-container");
+
+            const STORAGE_KEY = "participation_tracker_data";
+
+            let state = {
+                rows: 5,
+                cols: 4,
+                data: {} // Map "row-col" -> value
+            };
+
+            function loadState() {
+                const stored = localStorage.getItem(STORAGE_KEY);
+                if (stored) {
+                    try {
+                        const parsed = JSON.parse(stored);
+                        // Merge parsed state to ensure structure
+                        state = { ...state, ...parsed };
+                    } catch (e) {
+                        console.error("Failed to load state", e);
+                    }
+                }
+
+                // Update inputs
+                rowsInput.value = state.rows;
+                colsInput.value = state.cols;
+            }
+
+            function saveState() {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+            }
+
+            function renderGrid() {
+                gridContainer.innerHTML = "";
+
+                const table = document.createElement("table");
+                table.className = "border-collapse w-full";
+
+                // Create Header Row (optional, or just treat all as data)
+                // Let's just create a uniform grid as requested "flexible rows/cols"
+
+                for (let r = 0; r < state.rows; r++) {
+                    const tr = document.createElement("tr");
+
+                    for (let c = 0; c < state.cols; c++) {
+                        const td = document.createElement("td");
+                        td.className = "border border-gray-300 p-0 min-w-[100px]";
+
+                        const input = document.createElement("input");
+                        input.type = "text";
+                        input.className = "w-full p-2 border-none focus:ring-inset focus:ring-2 focus:ring-hbs-crimson outline-none bg-transparent";
+
+                        // Key for storage
+                        const key = `${r}-${c}`;
+                        input.value = state.data[key] || "";
+
+                        // Event listener
+                        input.addEventListener("input", (e) => {
+                            state.data[key] = e.target.value;
+                            saveState();
+                        });
+
+                        td.appendChild(input);
+                        tr.appendChild(td);
+                    }
+                    table.appendChild(tr);
+                }
+
+                gridContainer.appendChild(table);
+            }
+
+            // Button Events
+            updateBtn.addEventListener("click", () => {
+                const r = parseInt(rowsInput.value, 10);
+                const c = parseInt(colsInput.value, 10);
+
+                if (r > 0 && c > 0) {
+                    // Check if shrinking would lose data?
+                    // For now, let's just update the visible grid dimensions.
+                    // Data outside new dimensions remains in state.data but invisible.
+                    state.rows = r;
+                    state.cols = c;
+                    saveState();
+                    renderGrid();
+                }
+            });
+
+            clearBtn.addEventListener("click", () => {
+                if (confirm("Are you sure you want to clear all data in the table?")) {
+                    state.data = {};
+                    saveState();
+                    renderGrid();
+                }
+            });
+
+            // Init
+            loadState();
+            renderGrid();
+        });
+    </script>
+</Layout>
