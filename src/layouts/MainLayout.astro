@@ -5,8 +5,6 @@ const base = import.meta.env.BASE_URL;
 const normalize = (path: string) => path.replace(/\/+$/, "");
 const isActive = (path: string) =>
     normalize(Astro.url.pathname) === normalize(base + path);
-const isParentActive = (path: string) =>
-    normalize(Astro.url.pathname).startsWith(normalize(base + path));
 ---
 
 <html lang="en">
@@ -14,263 +12,42 @@ const isParentActive = (path: string) =>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>HBS Class of 2027 - Section J</title>
-
-        <!-- Import Inter font -->
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-        <link
-            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
-            rel="stylesheet"
-        />
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
         <link href={base + "favicon.ico"} rel="icon" type="image/x-icon" />
     </head>
     <body class="bg-gray-100">
         <div class="min-h-screen">
-            <!-- === Header === -->
             <header class="bg-hbs-crimson text-white shadow-lg">
-                <div
-                    class="container mx-auto px-6 py-6 flex justify-between items-center"
-                >
+                <div class="container mx-auto px-6 py-6 flex justify-between items-center">
                     <h1 class="text-2xl md:text-3xl font-bold tracking-tight">
                         Section J
-                        <span
-                            class="block text-lg md:inline md:ml-2 font-light opacity-90"
-                            >HBS Class of 2027</span
-                        >
+                        <span class="block text-lg md:inline md:ml-2 font-light opacity-90">HBS Class of 2027</span>
                     </h1>
                     <div class="hidden md:block">
-                        <img
-                            src={base + "assets/hbs_w.png"}
-                            alt="HBS logo"
-                            class="w-12 h-12"
-                        />
+                        <img src={base + "assets/hbs_w.png"} alt="HBS logo" class="w-12 h-12" />
                     </div>
                 </div>
             </header>
 
-            <!-- === Navigation === -->
             <nav class="bg-white shadow-md sticky top-0 z-10">
                 <div class="container mx-auto px-6">
-                    <div
-                        class="flex space-x-6 md:space-x-8 -mb-px overflow-x-auto md:overflow-visible whitespace-nowrap"
-                    >
-                        <a
-                            href={base}
-                            class={`py-4 px-1 border-b-4 text-sm md:text-base font-medium ${
-                                isActive("") || isActive("home")
-                                    ? "text-hbs-crimson border-hbs-crimson"
-                                    : "text-gray-600 border-transparent hover:text-gray-800 hover:border-gray-300"
-                            }`}
-                        >
-                            Home
-                        </a>
-                        <a
-                            href={base + "directory"}
-                            class={`py-4 px-1 border-b-4 text-sm md:text-base font-medium ${
-                                isActive("directory")
-                                    ? "text-hbs-crimson border-hbs-crimson"
-                                    : "text-gray-600 border-transparent hover:text-gray-800 hover:border-gray-300"
-                            }`}
-                        >
-                            Directory
-                        </a>
-
-                        <!-- Games Dropdown -->
-                        <div class="relative">
-                            <button
-                                id="games-dropdown-btn"
-                                class={`py-4 px-1 border-b-4 text-sm md:text-base font-medium flex items-center ${
-                                    isParentActive("games")
-                                        ? "text-hbs-crimson border-hbs-crimson"
-                                        : "text-gray-600 border-transparent hover:text-gray-800 hover:border-gray-300"
-                                }`}
-                            >
-                                Games
-                                <svg
-                                    class="w-4 h-4 ml-1"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                >
-                                    <path
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        stroke-width="2"
-                                        d="M19 9l-7 7-7-7"></path>
-                                </svg>
-                            </button>
-                            <!-- Dropdown Menu -->
-                            <!-- Uses 'fixed' positioning controlled by JS to avoid clipping in overflow containers on mobile -->
-                            <div
-                                id="games-dropdown-menu"
-                                class="hidden fixed w-48 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-100"
-                            >
-                                <a
-                                    href={base + "games/alignment"}
-                                    class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-hbs-crimson"
-                                >
-                                    Alignment
-                                </a>
-                                <a
-                                    href={base + "games/stocks"}
-                                    class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-hbs-crimson"
-                                >
-                                    Stocks
-                                </a>
-                            </div>
-                        </div>
-
-                        <script>
-                            document.addEventListener(
-                                "DOMContentLoaded",
-                                () => {
-                                    const btn =
-                                        document.getElementById(
-                                            "games-dropdown-btn",
-                                        );
-                                    const menu = document.getElementById(
-                                        "games-dropdown-menu",
-                                    );
-
-                                    if (btn && menu) {
-                                        // Toggle menu on click
-                                        btn.addEventListener("click", (e) => {
-                                            e.stopPropagation();
-                                            const isHidden =
-                                                menu.classList.contains(
-                                                    "hidden",
-                                                );
-
-                                            if (isHidden) {
-                                                // Show menu
-                                                menu.classList.remove("hidden");
-
-                                                // Calculate position
-                                                const rect =
-                                                    btn.getBoundingClientRect();
-                                                menu.style.top = `${rect.bottom}px`;
-                                                menu.style.left = `${rect.left}px`;
-                                            } else {
-                                                // Hide menu
-                                                menu.classList.add("hidden");
-                                            }
-                                        });
-
-                                        // Close on click outside
-                                        document.addEventListener(
-                                            "click",
-                                            (e) => {
-                                                if (
-                                                    !menu.contains(
-                                                        e.target as Node,
-                                                    ) &&
-                                                    !btn.contains(
-                                                        e.target as Node,
-                                                    )
-                                                ) {
-                                                    menu.classList.add(
-                                                        "hidden",
-                                                    );
-                                                }
-                                            },
-                                        );
-
-                                        // Close on scroll (simplest way to handle fixed positioning issues)
-                                        window.addEventListener(
-                                            "scroll",
-                                            () => {
-                                                if (
-                                                    !menu.classList.contains(
-                                                        "hidden",
-                                                    )
-                                                ) {
-                                                    menu.classList.add(
-                                                        "hidden",
-                                                    );
-                                                }
-                                            },
-                                            { passive: true },
-                                        );
-
-                                        // Close on resize
-                                        window.addEventListener(
-                                            "resize",
-                                            () => {
-                                                if (
-                                                    !menu.classList.contains(
-                                                        "hidden",
-                                                    )
-                                                ) {
-                                                    menu.classList.add(
-                                                        "hidden",
-                                                    );
-                                                }
-                                            },
-                                        );
-                                    }
-                                },
-                            );
-                        </script>
-                        <a
-                            href={base + "events"}
-                            class={`py-4 px-1 border-b-4 text-sm md:text-base font-medium ${
-                                isActive("events")
-                                    ? "text-hbs-crimson border-hbs-crimson"
-                                    : "text-gray-600 border-transparent hover:text-gray-800 hover:border-gray-300"
-                            }`}
-                        >
-                            Events
-                        </a>
-                        <a
-                            href={base + "cases"}
-                            class={`py-4 px-1 border-b-4 text-sm md:text-base font-medium ${
-                                isActive("cases")
-                                    ? "text-hbs-crimson border-hbs-crimson"
-                                    : "text-gray-600 border-transparent hover:text-gray-800 hover:border-gray-300"
-                            }`}
-                        >
-                            Cases
-                        </a>
-                        <a
-                            href={base + "resources"}
-                            class={`py-4 px-1 border-b-4 text-sm md:text-base font-medium ${
-                                isActive("resources")
-                                    ? "text-hbs-crimson border-hbs-crimson"
-                                    : "text-gray-600 border-transparent hover:text-gray-800 hover:border-gray-300"
-                            }`}
-                        >
-                            Resources
-                        </a>
-                        <a
-                            href={base + "feedback"}
-                            class={`py-4 px-1 border-b-4 text-sm md:text-base font-medium ${
-                                isActive("feedback")
-                                    ? "text-hbs-crimson border-hbs-crimson"
-                                    : "text-gray-600 border-transparent hover:text-gray-800 hover:border-gray-300"
-                            }`}
-                        >
-                            Feedback
-                        </a>
+                    <div class="flex space-x-6 md:space-x-8 -mb-px overflow-x-auto md:overflow-visible whitespace-nowrap">
+                        <a href={base} class={`py-4 px-1 border-b-4 text-sm md:text-base font-medium ${isActive("") || isActive("home") ? "text-hbs-crimson border-hbs-crimson" : "text-gray-600 border-transparent hover:text-gray-800 hover:border-gray-300"}`}>Home</a>
+                        <a href={base + "directory"} class={`py-4 px-1 border-b-4 text-sm md:text-base font-medium ${isActive("directory") ? "text-hbs-crimson border-hbs-crimson" : "text-gray-600 border-transparent hover:text-gray-800 hover:border-gray-300"}`}>Directory</a>
+                        <a href={base + "map"} class={`py-4 px-1 border-b-4 text-sm md:text-base font-medium ${isActive("map") ? "text-hbs-crimson border-hbs-crimson" : "text-gray-600 border-transparent hover:text-gray-800 hover:border-gray-300"}`}>Map</a>
                     </div>
                 </div>
             </nav>
 
-            <!-- Page Content Slot -->
-            <main class="container mx-auto p-4 md:p-8">
-                <slot />
-            </main>
+            <main class="container mx-auto p-4 md:p-8"><slot /></main>
         </div>
 
-        <!-- === Footer === -->
         <footer class="bg-gray-800 text-gray-400 p-8 mt-12">
             <div class="container mx-auto text-center">
-                <p>
-                    &copy; 2025 HBS Section J, Class of 2027. All Rights
-                    Reserved.
-                </p>
-                <p class="text-sm mt-2">
-                    This site is managed by the Section J Leadership Team.
-                </p>
+                <p>&copy; 2025 HBS Section J, Class of 2027. All Rights Reserved.</p>
+                <p class="text-sm mt-2">This site is managed by the Section J Leadership Team.</p>
             </div>
         </footer>
     </body>

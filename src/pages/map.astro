@@ -1,0 +1,74 @@
+---
+import Layout from "../layouts/MainLayout.astro";
+---
+
+<Layout>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" crossorigin="" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" crossorigin="" />
+    <div class="bg-white p-6 md:p-8 rounded-lg shadow-lg">
+        <h2 class="text-3xl font-bold text-gray-800 mb-2">Section J Map</h2>
+        <p class="text-gray-600 mb-6">Explore where Section J members are located.</p>
+        <div id="section-map" class="w-full rounded-lg border border-gray-200" style="height: 650px"></div>
+        <p id="map-status" class="text-gray-600 mt-4">Loading map data...</p>
+    </div>
+
+    <script is:inline src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    <script is:inline src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" crossorigin=""></script>
+    <script is:inline>
+        const SPREADSHEET_ID = "1fTnSw2wZYzWLAa9jT0FA26oeSl5SUSKpgrRf0z_U9c4";
+        const MAP_SHEET_GID = "837723049";
+        const JSON_URL = `https://docs.google.com/spreadsheets/d/${SPREADSHEET_ID}/gviz/tq?tqx=out:json&gid=${MAP_SHEET_GID}`;
+        const mapElement = document.getElementById("section-map");
+        const statusElement = document.getElementById("map-status");
+
+        function escapeHtml(value) {
+            return String(value ?? "").replace(/[&<>'"]/g, (character) => ({
+                "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;",
+            })[character]);
+        }
+
+        async function loadMap() {
+            try {
+                const map = L.map(mapElement).setView([40, -75], 3);
+                L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                }).addTo(map);
+
+                const response = await fetch(JSON_URL);
+                if (!response.ok) throw new Error("Network response was not ok");
+                const text = await response.text();
+                const data = JSON.parse(text.substring(47, text.length - 2));
+                const members = data.table.rows.map((row) => ({
+                    personId: row.c[0]?.v,
+                    name: row.c[1]?.v,
+                    location: row.c[2]?.v,
+                    country: row.c[3]?.v,
+                    role: row.c[4]?.v,
+                    latitude: Number(row.c[5]?.v),
+                    longitude: Number(row.c[6]?.v),
+                })).filter((member) => member.personId && member.name && Number.isFinite(member.latitude) && Number.isFinite(member.longitude));
+
+                if (!members.length) throw new Error("No map members found");
+
+                const markers = L.markerClusterGroup();
+                const bounds = [];
+                members.forEach((member) => {
+                    const coordinates = [member.latitude, member.longitude];
+                    bounds.push(coordinates);
+                    const marker = L.marker(coordinates).bindPopup(`<strong>${escapeHtml(member.name)}</strong><br />${escapeHtml(member.location)}, ${escapeHtml(member.country)}<br />${escapeHtml(member.role)}`);
+                    markers.addLayer(marker);
+                });
+                map.addLayer(markers);
+                map.fitBounds(bounds, { padding: [30, 30], maxZoom: 5 });
+                statusElement.textContent = `${members.length} HBS students shown on the map.`;
+            } catch (error) {
+                console.error("Error loading map:", error);
+                statusElement.className = "text-red-600 mt-4";
+                statusElement.textContent = "Failed to load the map. Please try refreshing the page.";
+            }
+        }
+
+        loadMap();
+    </script>
+</Layout>
