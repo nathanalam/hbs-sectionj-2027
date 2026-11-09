@@ -3,11 +3,12 @@ import { readdir } from "node:fs/promises";
 import Layout from "../../layouts/MainLayout.astro";
 
 const base = import.meta.env.BASE_URL;
-const files = (await readdir("public/assets/hbs_classcard_photos"))
-    .filter((file) => file.endsWith(".jpg"))
-    .sort();
 
-export function getStaticPaths() {
+export async function getStaticPaths() {
+    const files = (await readdir("public/assets/hbs_classcard_photos"))
+        .filter((file) => file.endsWith(".jpg"))
+        .sort();
+
     return files.map((file, index) => ({
         params: { personId: `SJ27-${String(index + 1).padStart(3, "0")}` },
     }));
