@@ -5,6 +5,14 @@ const base = import.meta.env.BASE_URL;
 const normalize = (path: string) => path.replace(/\/+$/, "");
 const isActive = (path: string) =>
     normalize(Astro.url.pathname) === normalize(base + path);
+const SHEET_URL =
+    "https://docs.google.com/spreadsheets/d/1fTnSw2wZYzWLAa9jT0FA26oeSl5SUSKpgrRf0z_U9c4/edit?gid=2002002496#gid=2002002496";
+const navLinkClass = (active: boolean) =>
+    `py-4 px-1 border-b-4 text-sm md:text-base font-medium ${
+        active
+            ? "text-hbs-crimson border-hbs-crimson"
+            : "text-gray-600 border-transparent hover:text-gray-800 hover:border-gray-300"
+    }`;
 ---
 
 <html lang="en">
@@ -34,9 +42,17 @@ const isActive = (path: string) =>
             <nav class="bg-white shadow-md sticky top-0 z-10">
                 <div class="container mx-auto px-6">
                     <div class="flex space-x-6 md:space-x-8 -mb-px overflow-x-auto md:overflow-visible whitespace-nowrap">
-                        <a href={base} class={`py-4 px-1 border-b-4 text-sm md:text-base font-medium ${isActive("") || isActive("home") ? "text-hbs-crimson border-hbs-crimson" : "text-gray-600 border-transparent hover:text-gray-800 hover:border-gray-300"}`}>Home</a>
-                        <a href={base + "directory"} class={`py-4 px-1 border-b-4 text-sm md:text-base font-medium ${isActive("directory") ? "text-hbs-crimson border-hbs-crimson" : "text-gray-600 border-transparent hover:text-gray-800 hover:border-gray-300"}`}>Directory</a>
-                        <a href={base + "map"} class={`py-4 px-1 border-b-4 text-sm md:text-base font-medium ${isActive("map") ? "text-hbs-crimson border-hbs-crimson" : "text-gray-600 border-transparent hover:text-gray-800 hover:border-gray-300"}`}>Map</a>
+                        <a href={base} class={navLinkClass(isActive("") || isActive("home"))}>Home</a>
+                        <a href={base + "directory"} class={navLinkClass(isActive("directory"))}>Directory</a>
+                        <a href={base + "map"} class={navLinkClass(isActive("map"))}>Map</a>
+                        <a
+                            href={SHEET_URL}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class={navLinkClass(false)}
+                        >
+                            Database
+                        </a>
                     </div>
                 </div>
             </nav>
@@ -48,6 +64,16 @@ const isActive = (path: string) =>
             <div class="container mx-auto text-center">
                 <p>&copy; 2025 HBS Section J, Class of 2027. All Rights Reserved.</p>
                 <p class="text-sm mt-2">This site is managed by the Section J Leadership Team.</p>
+                <p class="text-sm mt-3">
+                    <a
+                        href={SHEET_URL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="text-gray-300 underline hover:text-white"
+                    >
+                        Section J Database
+                    </a>
+                </p>
             </div>
         </footer>
     </body>
